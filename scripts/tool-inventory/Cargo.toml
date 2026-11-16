@@ -1,0 +1,13 @@
+[package]
+name = "tool-inventory"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+craft-anything-engine = { path = "../../crates/engine" }
+craft-anything-ai = { path = "../../crates/ai" }
+craft-anything-setup = { path = "../../crates/setup" }
+serde_json = "1"
