@@ -1,6 +1,8 @@
 [workspace]
 resolver = "3"
 members = ["crates/*", "apps/*", "xtask"]
+# Non-Rust apps of the platform (React web app, Android app): see docs/platform/02-integration-map.md.
+exclude = ["apps/web", "apps/android"]
 
 [workspace.package]
 version = "0.6.1"

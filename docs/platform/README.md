@@ -15,10 +15,11 @@ engine. Phase 0 output:
 | [06-ui-plan.md](06-ui-plan.md) | Design tokens and the 38 screens |
 | [07-threat-model.md](07-threat-model.md) | Threats, controls and the phase that tests each |
 | [08-roadmap.md](08-roadmap.md) | Phases, current status, blockers |
+| [09-development.md](09-development.md) | Requirements and commands for every part |
 
 Regenerate the inventory after an upstream sync:
 
 ```
-cargo run -q --release --manifest-path scripts/tool-inventory/Cargo.toml > tools.json
+cargo run -q -p forge-worker -- catalog > tools.json
 python3 scripts/tool-inventory/render.py tools.json
 ```

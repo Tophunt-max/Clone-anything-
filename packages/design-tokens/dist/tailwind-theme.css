@@ -1,0 +1,42 @@
+/* Generated from packages/design-tokens/tokens.json by build.mjs. Do not edit by hand. */
+/* Import after "tailwindcss" and tokens.css. Utilities: bg-bg-canvas, text-text-primary, rounded-md, shadow-e1… */
+@theme inline {
+  --font-sans: var(--fx-font-sans);
+  --font-mono: var(--fx-font-mono);
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1280px;
+  --color-bg-canvas: var(--fx-bg-canvas);
+  --color-bg-surface: var(--fx-bg-surface);
+  --color-bg-raised: var(--fx-bg-raised);
+  --color-bg-field: var(--fx-bg-field);
+  --color-border-subtle: var(--fx-border-subtle);
+  --color-border-strong: var(--fx-border-strong);
+  --color-text-primary: var(--fx-text-primary);
+  --color-text-secondary: var(--fx-text-secondary);
+  --color-text-muted: var(--fx-text-muted);
+  --color-accent: var(--fx-accent);
+  --color-accent-strong: var(--fx-accent-strong);
+  --color-accent-violet: var(--fx-accent-violet);
+  --color-on-accent: var(--fx-on-accent);
+  --color-focus: var(--fx-focus);
+  --color-success: var(--fx-success);
+  --color-warning: var(--fx-warning);
+  --color-danger: var(--fx-danger);
+  --color-info: var(--fx-info);
+  --text-tiny: var(--fx-text-tiny);
+  --text-caption: var(--fx-text-caption);
+  --text-small: var(--fx-text-small);
+  --text-body: var(--fx-text-body);
+  --text-lead: var(--fx-text-lead);
+  --text-section: var(--fx-text-section);
+  --text-title: var(--fx-text-title);
+  --text-code: var(--fx-text-code);
+  --radius-sm: var(--fx-radius-sm);
+  --radius-md: var(--fx-radius-md);
+  --radius-lg: var(--fx-radius-lg);
+  --radius-xl: var(--fx-radius-xl);
+  --shadow-e0: var(--fx-shadow-0);
+  --shadow-e1: var(--fx-shadow-1);
+  --shadow-e2: var(--fx-shadow-2);
+  --shadow-e3: var(--fx-shadow-3);
+}

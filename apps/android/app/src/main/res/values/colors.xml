@@ -1,0 +1,4 @@
+<resources>
+    <!-- Window background before Compose draws; matches ForgeTokens.Dark.bgCanvas. -->
+    <color name="canvas">#FF0B1020</color>
+</resources>

@@ -1,0 +1,4 @@
+# JavaScript/TypeScript part of the platform (docs/platform/02-integration-map.md).
+packages:
+  - apps/web
+  - packages/*
