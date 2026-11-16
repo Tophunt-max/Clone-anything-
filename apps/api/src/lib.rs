@@ -75,6 +75,8 @@ pub fn router(state: AppState, body_limit: usize) -> Router {
         .route("/auth/login", post(a::login))
         .route("/auth/refresh", post(a::refresh))
         .route("/auth/logout", post(a::logout))
+        .route("/auth/login-code", post(a::login_code))
+        .route("/auth/exchange", post(a::exchange))
         .route("/me", get(me::me))
         .route("/me/sessions", get(me::sessions))
         .route("/me/sessions/{id}", axum::routing::delete(me::revoke_session))

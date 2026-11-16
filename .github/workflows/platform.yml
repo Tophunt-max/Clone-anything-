@@ -99,6 +99,17 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @forge/web exec playwright install --with-deps --only-shell chromium
       - run: pnpm --filter @forge/web e2e
+      # The Android app's HTTP client against the same running API (register, projects, WebView hand-over).
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Android client against the live API
+        run: |
+          FORGE_API_ADDR=127.0.0.1:18091 FORGE_DATABASE_URL="$FORGE_E2E_DATABASE_URL" FORGE_TOKEN_KEY="$(openssl rand -base64 32)" FORGE_COOKIE_SECURE=false ./target/debug/forge-api &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:18091/readyz && break; sleep 1; done
+          cd apps/android && FORGE_LIVE_API_URL=http://127.0.0.1:18091 ./gradlew --no-daemon testDebugUnitTest --tests '*LiveApiTest*'
+          grep -q 'skipped="0"' app/build/test-results/testDebugUnitTest/TEST-com.tophunt.forge.data.LiveApiTest.xml
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -123,7 +134,8 @@ jobs:
       # ubuntu-24.04 runners ship the Android SDK (ANDROID_HOME) with accepted licences; AGP adds
       # any missing platform itself. android-actions/setup-android@v3 failed there (no 'tools' package).
       - uses: gradle/actions/setup-gradle@v4
-      - run: ./gradlew --no-daemon assembleDebug testDebugUnitTest assembleRelease
+      # Unit, Robolectric Compose UI and WebView bridge security tests; release-only checks run in testReleaseUnitTest.
+      - run: ./gradlew --no-daemon assembleDebug testDebugUnitTest testReleaseUnitTest assembleRelease
       - uses: actions/upload-artifact@v4
         with:
           name: android-debug-apk

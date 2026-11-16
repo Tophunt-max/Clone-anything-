@@ -96,6 +96,19 @@ pub fn hash_refresh(token: &str) -> Vec<u8> {
     Sha256::digest(token.as_bytes()).to_vec()
 }
 
+const LOGIN_CODE_PREFIX: &str = "flc1.";
+
+/// A new WebView login code and the hash to store.
+pub fn new_login_code() -> Result<(String, Vec<u8>), String> {
+    let code = format!("{LOGIN_CODE_PREFIX}{}", B64.encode(random_bytes()?));
+    let hash = hash_refresh(&code);
+    Ok((code, hash))
+}
+
+pub fn looks_like_login_code(code: &str) -> bool {
+    code.len() <= 128 && code.starts_with(LOGIN_CODE_PREFIX)
+}
+
 pub fn looks_like_refresh(token: &str) -> bool {
     token.len() <= MAX_TOKEN_LEN && token.starts_with(REFRESH_PREFIX)
 }

@@ -75,7 +75,9 @@ Session delivery: web responses set `forge_at` (HttpOnly, `Path=/api`, 10 min), 
 `insufficient_role`, `email_taken`, `slug_taken`, `already_member`, `last_owner`,
 `rate_limited` (429 with `Retry-After`), `unsupported_media_type`, `too_large`.
 
-Not yet: OpenAPI generation, MFA, `/auth/login-code` + `/auth/exchange` (WebView, Phase 4),
+Phase 4 added `POST /api/v1/auth/login-code` (signed in; 201 `{code, expires_in_secs: 60}`) and `POST /api/v1/auth/exchange` (form `code`, `next`; 303 to `next` with the browser cookies; 401 `invalid_code`, 403 `cross_site`).
+
+Not yet: OpenAPI generation, MFA,
 `/me/devices`, project members, Deep mode endpoint (Phase 5).
 
 ## 4. Workspaces, projects, members

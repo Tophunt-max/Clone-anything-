@@ -233,3 +233,32 @@ describe("help", () => {
     expect(await screen.findByText("Tophunt Forge 0.1.0, API v1")).toBeInTheDocument();
   });
 });
+
+describe("android bridge", () => {
+  afterEach(() => {
+    delete (globalThis as { forgeNative?: unknown }).forgeNative;
+  });
+
+  it("asks the app for its version when running inside it", async () => {
+    const listeners = new Set<(e: MessageEvent) => void>();
+    const sent: string[] = [];
+    (globalThis as { forgeNative?: unknown }).forgeNative = {
+      postMessage: (m: string) => {
+        sent.push(m);
+        const { id } = JSON.parse(m) as { id: string };
+        queueMicrotask(() => listeners.forEach((l) => l(new MessageEvent("message", { data: JSON.stringify({ id, ok: true, result: { platform: "android", version: "0.1.0" } }) }))));
+      },
+      addEventListener: (_: string, l: (e: MessageEvent) => void) => listeners.add(l),
+      removeEventListener: (_: string, l: (e: MessageEvent) => void) => listeners.delete(l),
+    };
+    renderAt("/help", fakeApi({ health: vi.fn(async () => ({ status: "ok" as const })), ready: vi.fn(async () => ({ status: "ready" as const })), meta: vi.fn(async () => ({ name: "Tophunt Forge", version: "0.1.0", api_version: "v1", features: [] })) }));
+    expect(await screen.findByText("Android app 0.1.0")).toBeInTheDocument();
+    expect(JSON.parse(sent[0]!)).toMatchObject({ method: "getAppInfo" });
+    expect(listeners.size).toBe(0);
+  });
+
+  it("says web browser outside the app", async () => {
+    renderAt("/help", fakeApi({ health: vi.fn(async () => ({ status: "ok" as const })), ready: vi.fn(async () => ({ status: "ready" as const })), meta: vi.fn(async () => ({ name: "Tophunt Forge", version: "0.1.0", api_version: "v1", features: [] })) }));
+    expect(await screen.findByText("Web browser")).toBeInTheDocument();
+  });
+});

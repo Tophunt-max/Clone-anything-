@@ -14,7 +14,7 @@ docs updated, this file updated (completed work, blockers, untested features).
 | 1 | Monorepo skeleton, design tokens, CI | Cargo `exclude` + xtask skip list; pnpm workspace; tokens generate CSS/Tailwind/Kotlin; CI runs Rust, web and Android jobs | Rust + web yes; Android only in CI |
 | 2 | Axum API, auth, PostgreSQL | Migrations, register/login/refresh/revoke, RBAC, tenant isolation tests, OpenAPI, health, rate limits | Yes: portable PostgreSQL 16.15 runs here (Phase 2) |
 | 3 | React app and API integration | Auth flows, dashboard, projects, settings, notifications, help; responsive tests | Yes |
-| 4 | Android shell and secure WebView | Native screens, WebView bridge with security tests, back navigation, offline | Build and unit tests yes (SDK installed in Phase 1); instrumented/UI tests need an emulator, CI only |
+| 4 | Android shell and secure WebView | Native screens, WebView bridge with security tests, back navigation, offline | Build, unit and Robolectric Compose UI tests yes; a real WebView on a device/emulator no |
 | 5 | Engine adapter and tool registry | `forge-worker` engine role, worker protocol, policy + approvals, evidence index, analyzers (screens 16–20) | Engine yes; sandbox isolation no |
 | 6 | AI assistant and multi-agent orchestration | Providers, chat, plans, tasks, worktrees, streaming, cost tracking | Partly (needs a real AI key for live tests) |
 | 7 | Monaco editor, terminal, Git | Editor with ETag conflicts, PTY terminal, Git operations with credentials | Partly (terminal isolation needs containers) |
@@ -22,7 +22,7 @@ docs updated, this file updated (completed work, blockers, untested features).
 | 9 | Security review, testing, monitoring | Threat-model controls tested, E2E suite, backup/restore test, dashboards | Partly |
 | 10 | Deployment and release | Compose stack on Ubuntu 24.04, TLS, runbooks, signed Android release | Target host only |
 
-## Current status (end of Phase 3)
+## Current status (end of Phase 4)
 
 ### Phase 0
 | Item | Status |
@@ -97,6 +97,27 @@ now be presented again: it rotates once more and marks the lost token as long us
 presents that one later still ends the session. Trade-off: a token copied and replayed within
 those 30 seconds also works once.
 
+### Phase 4
+| Item | Status | Evidence |
+|---|---|---|
+| API: `POST /auth/login-code` (single-use, 60 s, hash stored) and `POST /auth/exchange` (form POST → HttpOnly cookies + 303 to a same-site path; refuses `Sec-Fetch-Site: cross-site`, reused, expired codes and codes of ended sessions) | Implemented and verified | 4 API tests (52 total) |
+| Android screens 1 Splash, 2 Onboarding, 3 Server Connection (HTTPS only; plain HTTP only for local hosts in debug), 4 Login, 5 Registration, 6 Dashboard shell, 7 Project List (workspace picker, empty, offline, error with request ID) | Implemented and verified (JVM) | 7 Robolectric Compose UI navigation tests |
+| Native settings (account, server, sign out), native Help and Diagnostics | Implemented and verified (JVM) | navigation tests cover sign out |
+| HTTP client: Retrofit + OkHttp, Bearer tokens, one shared refresh on 401 then one retry, refused refresh ends the session | Implemented and verified | MockWebServer tests incl. 4 concurrent calls → 1 refresh |
+| Same backend for both clients | Implemented and verified | `LiveApiTest`: the app's real client against a running forge-api: register, workspaces, projects, WebView exchange (303 + HttpOnly cookies), sign out, sign in. Also in CI |
+| Tokens encrypted at rest (AES-256-GCM, Android Keystore key, DataStore) | Implemented and verified (crypto part) | `SealerTest` with a software key; the Keystore itself only exists on a device |
+| Secure WebView: one trusted origin, other HTTPS pages in Custom Tabs, other schemes blocked; no file/content access; no mixed content; Safe Browsing; no third-party cookies; no extra windows | Implemented but not live-tested | Policy unit-tested; the WebView itself needs a device or emulator |
+| Bridge: `addWebMessageListener` limited to the trusted origin, main frame only, strict JSON schema, 4 methods (`getAppInfo`, `haptic`, `share`, `openExternal` https-only), size limits | Implemented and verified (logic) | 6 bridge security tests incl. 21 refused messages; web side `callNative` tested with a fake bridge |
+| WebView debugging off in release; no plain HTTP in release | Implemented and verified | `ReleaseSecurityTest` (release unit tests); release APK manifest: `allowBackup=false`, cleartext off, HTTPS-only network security config |
+| Android back: web history first, then the native screen | Implemented but not live-tested | needs a real WebView |
+| Offline: banner, offline errors with retry, WebView load errors as a native error screen | Implemented and verified (native screens) | Robolectric offline test; WebView part not live-tested |
+| Room, WorkManager, notifications, file picker, artifact sharing | Not implemented | No offline cache, downloads or notifications exist yet to use them; planned with artifacts (Phase 8) and notifications (Phases 6, 8) |
+| App icon | Not implemented | still the default icon |
+
+**Bug found by the tests:** the app's JSON encoder left out default values, so `client: "android"`
+was never sent and the server answered as to a browser (cookies, no tokens). Defaults are now
+always encoded, and `HttpBackendTest` checks the request body.
+
 ## Blockers and risks
 
 | # | Blocker / risk | Affects | Mitigation |
@@ -118,5 +139,5 @@ those 30 seconds also works once.
 - Rate limits with more than one API instance (in-memory today).
 
 - Web layout at real breakpoints in a browser (only jsdom unit tests so far).
-- Android app on a device or emulator.
+- Android app on a device or emulator, including the real WebView, Keystore, Custom Tabs and back navigation.
 - `cargo deny` licence check for the new Rust dependencies (axum, tokio, tracing, uuid) was not run; they are MIT or MIT/Apache-2.0, which `deny.toml` allows.

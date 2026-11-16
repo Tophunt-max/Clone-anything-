@@ -26,7 +26,7 @@ async fn migrations_are_idempotent() {
     crate::MIGRATOR.run(&app.db).await.unwrap();
     let tables: Vec<String> =
         sqlx::query_scalar("select tablename::text from pg_tables where schemaname = 'public' order by 1").fetch_all(&app.db).await.unwrap();
-    for t in ["audit_logs", "devices", "projects", "refresh_tokens", "sessions", "users", "workspace_members", "workspaces"] {
+    for t in ["audit_logs", "devices", "login_codes", "projects", "refresh_tokens", "sessions", "users", "workspace_members", "workspaces"] {
         assert!(tables.iter().any(|x| x == t), "{t} missing: {tables:?}");
     }
 }

@@ -3,6 +3,7 @@ import { ApiError } from "@forge/api-client";
 import { useApi } from "../api.ts";
 import { Badge, Button, Card, PageHeader, formatDate } from "../components/ui.tsx";
 import { useDiagnostics } from "../lib/diagnostics.ts";
+import { callNative, inAndroidApp } from "../lib/native.ts";
 
 // Works signed in or not: it is where people go when something is broken.
 export function HelpPage() {
@@ -10,6 +11,7 @@ export function HelpPage() {
   const meta = useQuery({ queryKey: ["diag", "meta"], queryFn: ({ signal }) => api.meta(signal), retry: false });
   const health = useQuery({ queryKey: ["diag", "health"], queryFn: ({ signal }) => api.health(signal), retry: false });
   const ready = useQuery({ queryKey: ["diag", "ready"], queryFn: ({ signal }) => api.ready(signal), retry: false });
+  const app = useQuery({ queryKey: ["diag", "app"], queryFn: () => callNative("getAppInfo"), enabled: inAndroidApp(), retry: false });
   const { errors, clear } = useDiagnostics();
   const recheck = () => void Promise.all([meta.refetch(), health.refetch(), ready.refetch()]);
 
@@ -26,6 +28,7 @@ export function HelpPage() {
         </Card>
         <Card title="This browser">
           <dl className="grid grid-cols-1 gap-2 text-small">
+            <Row label="App" value={!inAndroidApp() ? "Web browser" : app.data?.ok ? `Android app ${app.data.result?.version ?? ""}` : app.isError ? "Android app (not answering)" : "Android app…"} />
             <Row label="Address" value={window.location.origin} />
             <Row label="Screen" value={`${window.innerWidth} × ${window.innerHeight}`} />
             <Row label="Online" value={navigator.onLine ? "yes" : "no"} />

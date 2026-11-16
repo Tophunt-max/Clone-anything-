@@ -1,4 +1,3 @@
 <resources>
     <string name="app_name">Tophunt Forge</string>
-    <string name="shell_status">Android shell, Phase 1 skeleton. Server connection and sign-in arrive in Phase 4.</string>
 </resources>

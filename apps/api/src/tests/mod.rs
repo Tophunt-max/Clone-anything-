@@ -8,6 +8,7 @@ mod auth;
 mod basics;
 mod no_db;
 mod tenancy;
+mod webview;
 
 use std::time::Duration;
 

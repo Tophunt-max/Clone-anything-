@@ -29,8 +29,11 @@ FORGE_E2E_DATABASE_URL=postgres://forge:dev@127.0.0.1:5432/forge pnpm --filter @
 # Design tokens: edit packages/design-tokens/tokens.json, then
 pnpm tokens                                 # writes CSS, Tailwind theme and ForgeTokens.kt
 
-# Android
-cd apps/android && ./gradlew assembleDebug testDebugUnitTest
+# Android (unit, Robolectric Compose UI and bridge security tests; release checks)
+cd apps/android && ./gradlew assembleDebug testDebugUnitTest testReleaseUnitTest
+# The app's client against a running API (skipped without the variable)
+FORGE_LIVE_API_URL=http://127.0.0.1:8080 ./gradlew testDebugUnitTest --tests '*LiveApiTest*'
+# Debug builds may use http://10.0.2.2:8080 (the emulator's view of this computer); release needs HTTPS.
 ```
 
 ## API settings (environment)
