@@ -1,0 +1,99 @@
+/* Generated from packages/design-tokens/tokens.json by build.mjs. Do not edit by hand. */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --fx-bg-canvas: #0B1020;
+  --fx-bg-surface: #111827;
+  --fx-bg-raised: #161F33;
+  --fx-bg-field: #1C2740;
+  --fx-border-subtle: #24304A;
+  --fx-border-strong: #3A4868;
+  --fx-text-primary: #E6EAF2;
+  --fx-text-secondary: #A3AECB;
+  --fx-text-muted: #8391B0;
+  --fx-accent: #5B97FF;
+  --fx-accent-strong: #2F6FEB;
+  --fx-accent-violet: #A78BFA;
+  --fx-on-accent: #FFFFFF;
+  --fx-focus: #7AA9FF;
+  --fx-success: #34D399;
+  --fx-warning: #FBBF24;
+  --fx-danger: #F87171;
+  --fx-info: #38BDF8;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --fx-bg-canvas: #F5F7FB;
+  --fx-bg-surface: #FFFFFF;
+  --fx-bg-raised: #EEF1F7;
+  --fx-bg-field: #FFFFFF;
+  --fx-border-subtle: #DDE2EC;
+  --fx-border-strong: #AEB8CC;
+  --fx-text-primary: #0F172A;
+  --fx-text-secondary: #36415A;
+  --fx-text-muted: #55617C;
+  --fx-accent: #1D4ED8;
+  --fx-accent-strong: #1D4ED8;
+  --fx-accent-violet: #6D28D9;
+  --fx-on-accent: #FFFFFF;
+  --fx-focus: #2563EB;
+  --fx-success: #15803D;
+  --fx-warning: #A16207;
+  --fx-danger: #B91C1C;
+  --fx-info: #0369A1;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+    --fx-bg-canvas: #F5F7FB;
+    --fx-bg-surface: #FFFFFF;
+    --fx-bg-raised: #EEF1F7;
+    --fx-bg-field: #FFFFFF;
+    --fx-border-subtle: #DDE2EC;
+    --fx-border-strong: #AEB8CC;
+    --fx-text-primary: #0F172A;
+    --fx-text-secondary: #36415A;
+    --fx-text-muted: #55617C;
+    --fx-accent: #1D4ED8;
+    --fx-accent-strong: #1D4ED8;
+    --fx-accent-violet: #6D28D9;
+    --fx-on-accent: #FFFFFF;
+    --fx-focus: #2563EB;
+    --fx-success: #15803D;
+    --fx-warning: #A16207;
+    --fx-danger: #B91C1C;
+    --fx-info: #0369A1;
+  }
+}
+
+:root {
+  --fx-font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+  --fx-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --fx-line-height: 1.45;
+  --fx-text-tiny: 12px;
+  --fx-text-caption: 13px;
+  --fx-text-small: 14px;
+  --fx-text-body: 15px;
+  --fx-text-lead: 17px;
+  --fx-text-section: 20px;
+  --fx-text-title: 26px;
+  --fx-text-code: 13px;
+  --fx-space-xxs: 2px;
+  --fx-space-xs: 4px;
+  --fx-space-sm: 8px;
+  --fx-space-md: 12px;
+  --fx-space-lg: 16px;
+  --fx-space-xl: 24px;
+  --fx-space-xxl: 32px;
+  --fx-space-xxxl: 48px;
+  --fx-radius-sm: 4px;
+  --fx-radius-md: 6px;
+  --fx-radius-lg: 8px;
+  --fx-radius-xl: 12px;
+  --fx-shadow-0: none;
+  --fx-shadow-1: 0 1px 2px rgb(0 0 0 / 0.30);
+  --fx-shadow-2: 0 6px 16px rgb(0 0 0 / 0.35);
+  --fx-shadow-3: 0 16px 40px rgb(0 0 0 / 0.45);
+}

@@ -201,7 +201,7 @@ fn rust_files(dir: &Path, out: &mut Vec<PathBuf>) {
         let p = e.path();
         let name = e.file_name().to_string_lossy().into_owned();
         if p.is_dir() {
-            if !matches!(name.as_str(), "tests" | "examples" | "target") {
+            if !matches!(name.as_str(), "tests" | "examples" | "target") && !crate::non_rust_app(&p) {
                 rust_files(&p, out);
             }
         } else if name.ends_with(".rs") && name != "tests.rs" {

@@ -179,6 +179,15 @@ const APP_LAYER: u8 = 7;
 const UI_APPS: &[&str] = &["craft-anything", "craft-anything-web"];
 const WASM_APPS: &[&str] = &["craft-anything-web"];
 
+/// Folders under `apps/` that are not Rust: the platform's React web app and Android app
+/// (excluded from the Cargo workspace). Source walks skip them, and with them `node_modules`
+/// and Gradle build output.
+const NON_RUST_APPS: &[&str] = &["web", "android"];
+
+pub(crate) fn non_rust_app(dir: &Path) -> bool {
+    dir.parent().and_then(Path::file_name).is_some_and(|p| p == "apps") && dir.file_name().is_some_and(|n| NON_RUST_APPS.iter().any(|a| n == *a))
+}
+
 fn layers(root: &Path) -> bool {
     let layer: BTreeMap<&str, u8> = LAYERS.iter().copied().collect();
     let mut ok = true;
@@ -188,7 +197,7 @@ fn layers(root: &Path) -> bool {
             eprintln!("layers: cannot read {dir}/");
             return false;
         };
-        manifests.extend(entries.flatten().map(|e| (dir == "apps", e.path().join("Cargo.toml"))));
+        manifests.extend(entries.flatten().filter(|e| !non_rust_app(&e.path())).map(|e| (dir == "apps", e.path().join("Cargo.toml"))));
     }
     for (is_app, manifest) in manifests {
         let (name, deps) = manifest_deps(&manifest);
@@ -245,7 +254,7 @@ fn process_calls_only_in_platform(root: &Path) -> bool {
             let p = e.path();
             let name = e.file_name().to_string_lossy().into_owned();
             if p.is_dir() {
-                if !matches!(name.as_str(), "target" | "tests" | "platform" | "xtask") && !name.starts_with('.') {
+                if !matches!(name.as_str(), "target" | "tests" | "platform" | "xtask") && !name.starts_with('.') && !non_rust_app(&p) {
                     walk(&p, files);
                 }
             } else if name.ends_with(".rs") {
@@ -415,7 +424,7 @@ fn no_real_machine_sessions(root: &Path) -> bool {
         for e in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
             let p = e.path();
             if p.is_dir() {
-                if p.file_name().is_some_and(|n| n != "target") {
+                if p.file_name().is_some_and(|n| n != "target") && !non_rust_app(&p) {
                     stack.push(p);
                 }
                 continue;
@@ -490,7 +499,8 @@ fn pending(root: &Path, count_only: bool) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::workspace_root;
+    use super::{non_rust_app, workspace_root};
+    use std::path::Path;
 
     #[test]
     fn readme_status_does_not_list_first_public_release_as_next() {
@@ -498,6 +508,18 @@ mod tests {
         let status = readme.split("\n## Status").nth(1).unwrap();
         let status = status.split("\n**Responsible use.**").next().unwrap().replace("\n> ", " ");
         assert!(!status.contains("**Next:** the first public release"), "{status}");
+    }
+
+    /// The platform's React and Android apps live in `apps/` but aren't Rust: source walks skip
+    /// them (and their `node_modules`/Gradle output), and nothing else under `apps/` or `crates/`.
+    #[test]
+    fn only_the_non_rust_apps_are_skipped() {
+        assert!(non_rust_app(Path::new("/repo/apps/web")));
+        assert!(non_rust_app(Path::new("apps/android")));
+        assert!(!non_rust_app(Path::new("apps/craft-anything-web")));
+        assert!(!non_rust_app(Path::new("apps/api")));
+        assert!(!non_rust_app(Path::new("crates/web")));
+        assert!(!non_rust_app(Path::new("apps/web/src")));
     }
 
     /// `xtask` was the one member that didn't opt into the workspace lints, so the repo-wide

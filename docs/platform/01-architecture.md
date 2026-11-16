@@ -1,6 +1,7 @@
 # Architecture
 
-Status: **proposed** (Phase 0). Nothing in this document is implemented yet.
+Status: **proposed** (Phase 0). Product name: **Tophunt Forge** (Android id `com.tophunt.forge`).
+Phase 1 implemented the skeletons of `apps/api` and `apps/workers`; see [08-roadmap.md](08-roadmap.md) for what works.
 
 ## 1. Overview
 
@@ -36,7 +37,7 @@ approvals, the job queue, event fan-out (SSE and WebSocket), Git and build orche
 artifacts, usage, notifications, audit logging. It never runs engine tools or user code itself.
 
 ### apps/workers: the data plane
-A single Rust binary (`craft-worker`) with three roles, started by a supervisor inside an
+A single Rust binary (`forge-worker`) with three roles, started by a supervisor inside an
 isolated sandbox per workspace:
 
 - **engine**: links the original crates (`engine`, `ai`, `platform`, `engines`). Owns exactly

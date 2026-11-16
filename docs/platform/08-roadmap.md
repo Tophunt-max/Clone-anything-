@@ -14,39 +14,58 @@ docs updated, this file updated (completed work, blockers, untested features).
 | 1 | Monorepo skeleton, design tokens, CI | Cargo `exclude` + xtask skip list; pnpm workspace; tokens generate CSS/Tailwind/Kotlin; CI runs Rust, web and Android jobs | Rust + web yes; Android only in CI |
 | 2 | Axum API, auth, PostgreSQL | Migrations, register/login/refresh/revoke, RBAC, tenant isolation tests, OpenAPI, health, rate limits | Only if portable Postgres runs here; otherwise CI |
 | 3 | React app and API integration | Auth flows, dashboard, projects, settings, notifications, help; responsive tests | Yes |
-| 4 | Android shell and secure WebView | Native screens, WebView bridge with security tests, back navigation, offline | CI only (no Android SDK here) |
-| 5 | Engine adapter and tool registry | `craft-worker` engine role, worker protocol, policy + approvals, evidence index, analyzers (screens 16–20) | Engine yes; sandbox isolation no |
+| 4 | Android shell and secure WebView | Native screens, WebView bridge with security tests, back navigation, offline | Build and unit tests yes (SDK installed in Phase 1); instrumented/UI tests need an emulator, CI only |
+| 5 | Engine adapter and tool registry | `forge-worker` engine role, worker protocol, policy + approvals, evidence index, analyzers (screens 16–20) | Engine yes; sandbox isolation no |
 | 6 | AI assistant and multi-agent orchestration | Providers, chat, plans, tasks, worktrees, streaming, cost tracking | Partly (needs a real AI key for live tests) |
 | 7 | Monaco editor, terminal, Git | Editor with ETag conflicts, PTY terminal, Git operations with credentials | Partly (terminal isolation needs containers) |
 | 8 | Build workers and artifacts | Queue, toolchain images, logs, tests, artifacts, quotas | CI / target host only |
 | 9 | Security review, testing, monitoring | Threat-model controls tested, E2E suite, backup/restore test, dashboards | Partly |
 | 10 | Deployment and release | Compose stack on Ubuntu 24.04, TLS, runbooks, signed Android release | Target host only |
 
-## Current status (end of Phase 0)
+## Current status (end of Phase 1)
 
+### Phase 0
 | Item | Status |
 |---|---|
 | Upstream imported with full history | Implemented and verified |
-| Rust 1.97 toolchain on the audit host | Implemented and verified |
 | Upstream headless test suite (4,025 passed, 4 environment-specific failures explained) | Implemented and verified |
 | Tool inventory generated from the registry (326 tools) | Implemented and verified |
-| Phase 0 documents (this folder) | Implemented and verified (written; review pending) |
-| Everything in Phases 1–10 | Not implemented |
+| Phase 0 documents | Implemented and verified (reviewed and accepted) |
+
+### Phase 1
+| Item | Status | Evidence |
+|---|---|---|
+| Product name **Tophunt Forge**, Android id `com.tophunt.forge` | Implemented and verified | `PRODUCT_NAME` in `apps/api/src/lib.rs`, `apps/android/app/build.gradle.kts` |
+| Cargo `exclude` for `apps/web`, `apps/android`; xtask walks skip them | Implemented and verified | `cargo xtask layers`, `locks`, `status`, `i18n-coverage`, `secrets` pass with `node_modules` present; xtask tests 16/16 |
+| `apps/api` (forge-api): `/healthz`, `/api/v1/meta`, request IDs, problem+json errors, body limit, timeout, graceful shutdown, env config | Implemented and verified | 8 unit tests; binary run: health/meta/404 answered, SIGTERM shut down cleanly, bad config exit 2 |
+| `apps/workers` (forge-worker): links the original engine, `catalog` command | Implemented and verified | 2 tests; `catalog` output renders a byte-identical inventory to Phase 0 |
+| Standalone inventory exporter replaced by `forge-worker catalog` | Implemented and verified | same output |
+| `packages/design-tokens`: one JSON → CSS variables, Tailwind v4 theme, Kotlin `ForgeTokens` | Implemented and verified | 7 tests incl. WCAG AA contrast for 16 pairs × 2 themes; `--check` for stale output |
+| `packages/shared-types`, `packages/api-client` | Implemented and verified | api-client 4 tests (request ID, cookies, problem → `ApiError`, network errors) |
+| `apps/web` skeleton: responsive shell, home page reading `/api/v1/meta` with loading/error/retry, 404 route | Implemented and verified (unit level) | 4 tests; `vite build` succeeds. Not yet tested in a real browser at the three breakpoints (Playwright arrives in Phase 3) |
+| `apps/android` skeleton: Compose + Material 3 theme from tokens | Implemented and verified (build level) | `assembleDebug`, `assembleRelease`, 3 JVM unit tests pass here; release APK has `allowBackup=false`, cleartext off, not debuggable. Not run on a device or emulator |
+| CI workflow `.github/workflows/platform.yml` (rust, web, android jobs) | Implemented and verified | All three jobs green on GitHub Actions for PR #2; upstream gate (`ci.yml`) green too |
+| `packages/ui`, `packages/websocket-client`, `packages/validation`, `packages/editor` | Not implemented | Created in the phase that first needs them (3, 3, 2, 7) instead of as empty folders |
+| `infrastructure/`, `tests/` (E2E) | Not implemented | Phases 2, 8, 9 |
+| Everything in Phases 2–10 | Not implemented | |
 
 ## Blockers and risks
 
 | # | Blocker / risk | Affects | Mitigation |
 |---|---|---|---|
-| B1 | No Android SDK or Gradle in this sandbox | Phase 4, acceptance criteria 1, 13 | Build and test Android in GitHub Actions; report CI results only |
+| B1 | ~~No Android SDK or Gradle in this sandbox~~ Resolved in Phase 1: JDK 21, Gradle 8.11.1 and SDK 35 installed in the workspace folder. Still no emulator | Instrumented and Compose UI tests (criterion 13) | Run instrumented tests on a CI emulator in Phase 4 |
 | B2 | Containers do not start in this sandbox (Podman without `conmon`) | Worker isolation, terminal isolation, builds (criteria 8, 10) | Test on CI runners or the target Ubuntu host |
 | B3 | No PostgreSQL in this sandbox | Phase 2 migrations and tenant isolation (criteria 11, 12) | Try portable Postgres binaries; otherwise GitHub Actions service container |
 | B4 | Git proxy cannot fetch `storytold/craft-libs` | Building `ui-egui` locally | Local tarball patch on the audit host only; CI unaffected |
 | B5 | No AI provider key available | Live agent tests (criterion 7) | You add a key as a secret; until then agent streaming is "Implemented but not live-tested" |
 | B6 | No authenticated test Git repository | Criterion 9 | A dedicated test repo and token are needed |
-| B7 | Product name and icon | Android app id, store listing | ArtCraft brand cannot be used; you choose a name |
+| B7 | ~~Product name~~ Resolved: Tophunt Forge. App icon still needed | Store listing | Phase 4 uses a plain generated icon until one is designed |
 | R1 | Scope: 38 screens, 3 runtimes, isolation infrastructure | Schedule | Strict phase gates; no screen is counted done without API integration and all states |
+| R3 | Upstream test `plugins::tests::a_plugin_that_exits_at_once_says_what_it_printed_and_leaves_a_log` is flaky on CI (broken pipe when the plugin exits before its first write); passed 30/30 locally and on re-run | Occasional red upstream gate | Re-run; report upstream if it recurs |
 | R2 | Upstream moves fast (1,050 commits) | Merge conflicts | Minimal upstream edits; inventory diff on each sync |
 
 ## Untested features
 
-None implemented yet. This section lists untested items at the end of each phase.
+- Web layout at real breakpoints in a browser (only jsdom unit tests so far).
+- Android app on a device or emulator.
+- `cargo deny` licence check for the new Rust dependencies (axum, tokio, tracing, uuid) was not run; they are MIT or MIT/Apache-2.0, which `deny.toml` allows.

@@ -1,0 +1,21 @@
+{
+  "name": "forge-platform",
+  "private": true,
+  "license": "MIT OR Apache-2.0",
+  "packageManager": "pnpm@12.21.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "tokens": "pnpm --filter @forge/design-tokens build",
+    "check": "pnpm -r --if-present check",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "build": "pnpm -r --if-present build"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}
