@@ -19,8 +19,21 @@ jobs:
   rust:
     name: Rust (forge-api, forge-worker)
     runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: forge
+          POSTGRES_PASSWORD: forge-ci-only
+          POSTGRES_DB: forge
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U forge" --health-interval 5s --health-timeout 5s --health-retries 20
     env:
       CRAFT_ANYTHING_NO_KEYCHAIN: "1"
+      # Database tests create a fresh database each; REQUIRE turns a skip into a failure here.
+      FORGE_TEST_DATABASE_URL: postgres://forge:forge-ci-only@127.0.0.1:5432/forge
+      FORGE_REQUIRE_DB_TESTS: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master

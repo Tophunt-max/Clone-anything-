@@ -1,5 +1,6 @@
 //! Request IDs: accept a client's `X-Request-Id` when it is a UUID, otherwise make one (UUIDv7).
-//! The ID is put in the request's extensions, on the response header and in the log span.
+//! The ID is put in the request's extensions, a task-local (so every problem body and audit entry
+//! picks it up), the response header and the log span.
 
 use axum::extract::Request;
 use axum::http::{HeaderName, HeaderValue};
@@ -19,6 +20,15 @@ impl std::fmt::Display for RequestId {
     }
 }
 
+tokio::task_local! {
+    static CURRENT: RequestId;
+}
+
+/// The ID of the request being handled on this task, if any.
+pub fn current() -> Option<RequestId> {
+    CURRENT.try_with(|id| *id).ok()
+}
+
 /// The client's ID if it is a well-formed UUID; anything else (missing, too long, not a UUID) is
 /// replaced, so a header can't inject text into logs.
 pub fn from_header(value: Option<&HeaderValue>) -> RequestId {
@@ -34,7 +44,7 @@ pub async fn middleware(mut req: Request, next: Next) -> Response {
     let id = from_header(req.headers().get(&HEADER));
     req.extensions_mut().insert(id);
     let span = tracing::info_span!("request", request_id = %id, method = %req.method(), path = %req.uri().path());
-    let mut resp = next.run(req).instrument(span.clone()).await;
+    let mut resp = CURRENT.scope(id, next.run(req).instrument(span.clone())).await;
     span.in_scope(|| tracing::info!(status = resp.status().as_u16(), "done"));
     if let Ok(v) = HeaderValue::from_str(&id.to_string()) {
         resp.headers_mut().insert(HEADER, v);

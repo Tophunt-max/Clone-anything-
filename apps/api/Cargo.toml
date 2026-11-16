@@ -10,13 +10,21 @@ publish = false
 workspace = true
 
 [dependencies]
-axum = "0.8"
+axum = { version = "0.8", features = ["macros"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal", "time"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-uuid = { version = "1", features = ["v7"] }
+uuid = { version = "1", features = ["v7", "serde"] }
+sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "postgres", "uuid", "chrono", "migrate", "macros", "json"] }
+argon2 = "0.6"
+chrono = { version = "0.4", features = ["serde"] }
+getrandom = "0.3"
+base64 = "0.22"
+subtle = "2"
+sha2 = "0.10"
+hmac = "0.12"
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }

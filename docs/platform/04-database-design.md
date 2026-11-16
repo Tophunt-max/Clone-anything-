@@ -1,6 +1,12 @@
 # Database design (PostgreSQL 16)
 
-Status: **proposed** (Phase 0). Migrations will live in `apps/api/migrations/` (SQLx).
+Status: Phase 2 implemented `users`, `devices`, `sessions`, `refresh_tokens` (one row per issued
+token, for reuse detection), `workspaces`, `workspace_members`, `projects` and `audit_logs` in
+`apps/api/migrations/20261116000001_identity_and_tenancy.sql`. The other tables are still proposed.
+Differences from the plan below: no `family_id`/`refresh_hash` on `sessions` (tokens have their
+own table), no `project_members` yet, `login_codes` waits for Phase 4.
+**Row-level security is not implemented yet**; isolation rests on the membership joins in every
+query, covered by the tenancy tests.
 
 ## 1. Conventions
 

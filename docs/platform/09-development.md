@@ -11,9 +11,10 @@
 ## Commands
 
 ```sh
-# Rust
-cargo run -p forge-api                      # API on 127.0.0.1:8080 (FORGE_API_ADDR to change)
-cargo test -p forge-api -p forge-worker
+# Rust (the API needs PostgreSQL 16; see "Database" below)
+cargo run -p forge-api -- migrate           # apply migrations and exit
+cargo run -p forge-api                      # API on 127.0.0.1:8080; migrates on start by default
+cargo test -p forge-api -p forge-worker     # DB tests skip unless FORGE_TEST_DATABASE_URL is set
 cargo run -q -p forge-worker -- catalog     # tool catalogue JSON from the engine registry
 
 # Web and packages (from the repository root)
@@ -35,7 +36,27 @@ cd apps/android && ./gradlew assembleDebug testDebugUnitTest
 | `FORGE_API_ADDR` | `127.0.0.1:8080` | Listen address |
 | `FORGE_API_REQUEST_TIMEOUT_SECS` | `30` | Per-request timeout (1–3600) |
 | `FORGE_API_BODY_LIMIT_BYTES` | `1048576` | Largest request body |
+| `FORGE_DATABASE_URL` | required | `postgres://user:pass@host:5432/db` |
+| `FORGE_DATABASE_MAX_CONNECTIONS` | `10` | Pool size (1–500) |
+| `FORGE_TOKEN_KEY` | required | base64 of ≥ 32 random bytes (`openssl rand -base64 32`). Rotating it signs everyone out |
+| `FORGE_COOKIE_SECURE` | `true` | Only `false` for plain-HTTP local development |
+| `FORGE_TRUST_PROXY` | `false` | Use the last `X-Forwarded-For` entry as the client address; only behind our reverse proxy |
+| `FORGE_MIGRATE_ON_START` | `true` | Apply pending migrations before serving |
 | `RUST_LOG` | `info` | Log filter; logs are JSON lines with the request ID |
+
+## Database
+
+Any PostgreSQL 16 works, e.g. `docker run -e POSTGRES_USER=forge -e POSTGRES_PASSWORD=dev -p 5432:5432 postgres:16`.
+Tests create one throwaway database per test, so the test user needs `CREATEDB`:
+
+```sh
+export FORGE_TEST_DATABASE_URL=postgres://forge:dev@127.0.0.1:5432/postgres
+cargo test -p forge-api
+```
+
+`FORGE_REQUIRE_DB_TESTS=1` (set in CI) makes the tests fail instead of skipping when the URL is
+missing. Test databases are named `forge_test_<id>` and are not dropped; remove them with
+`dropdb` when a local server fills up.
 
 ## Rules carried over from upstream
 

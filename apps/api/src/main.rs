@@ -1,9 +1,14 @@
 //! `forge-api` server binary. Exit codes: 0 clean shutdown, 1 runtime failure, 2 bad settings.
+//!
+//! `forge-api migrate` applies pending database migrations and exits.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
+use std::net::SocketAddr;
 use std::process::ExitCode;
+use std::time::Duration;
 
-use forge_api::{AppState, Config, router};
+use forge_api::{AppState, Config, MIGRATOR, router};
+use sqlx::postgres::PgPoolOptions;
 use tracing_subscriber::EnvFilter;
 
 fn main() -> ExitCode {
@@ -15,6 +20,14 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    let migrate_only = match std::env::args().nth(1).as_deref() {
+        None => false,
+        Some("migrate") => true,
+        Some(other) => {
+            eprintln!("error: unknown command {other:?}; usage: forge-api [migrate]");
+            return ExitCode::from(2);
+        }
+    };
     let rt = match tokio::runtime::Builder::new_multi_thread().enable_all().build() {
         Ok(rt) => rt,
         Err(e) => {
@@ -22,20 +35,37 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    match rt.block_on(serve(config)) {
+    match rt.block_on(run(config, migrate_only)) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            tracing::error!(error = %e, "server stopped");
+            tracing::error!(error = %e, "stopped");
             ExitCode::FAILURE
         }
     }
 }
 
-async fn serve(config: Config) -> std::io::Result<()> {
-    let listener = tokio::net::TcpListener::bind(config.addr).await?;
+async fn run(config: Config, migrate_only: bool) -> Result<(), String> {
+    let db = PgPoolOptions::new()
+        .max_connections(config.database_max_connections)
+        .acquire_timeout(Duration::from_secs(10))
+        .connect(&config.database_url)
+        .await
+        .map_err(|e| format!("couldn't connect to the database: {e}"))?;
+    if migrate_only || config.migrate_on_start {
+        MIGRATOR.run(&db).await.map_err(|e| format!("migrations failed: {e}"))?;
+        tracing::info!(migrations = MIGRATOR.iter().count(), "database is up to date");
+    }
+    if migrate_only {
+        return Ok(());
+    }
+    let listener = tokio::net::TcpListener::bind(config.addr).await.map_err(|e| format!("couldn't listen on {}: {e}", config.addr))?;
     tracing::info!(addr = %config.addr, "listening");
-    let app = router(AppState::new(&config), config.body_limit);
-    axum::serve(listener, app).with_graceful_shutdown(shutdown_signal()).await?;
+    let app = router(AppState::new(&config, db.clone()), config.body_limit);
+    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+        .map_err(|e| e.to_string())?;
+    db.close().await;
     tracing::info!("shut down cleanly");
     Ok(())
 }

@@ -1,6 +1,6 @@
 # API specification (v1)
 
-Status: **proposed** (Phase 0). The OpenAPI 3.1 document will be generated from the Axum handlers
+Status: §1–4 **implemented in Phase 2** (see the table in §3a); the rest is proposed. The OpenAPI 3.1 document will be generated from the Axum handlers
 with `utoipa` in Phase 2 and published at `/api/v1/openapi.json`. This page fixes the conventions
 and the endpoint list.
 
@@ -46,6 +46,37 @@ and the endpoint list.
 | POST | `/auth/login-code` (native: get a single-use WebView code) · `/auth/exchange` (WebView: code → cookies) |
 | GET | `/me` · `/me/sessions` · `/me/devices` |
 | DELETE | `/me/sessions/{id}` · `/me/devices/{id}` |
+
+## 3a. Implemented in Phase 2
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| GET | `/healthz` | anyone | liveness |
+| GET | `/readyz` | anyone | 503 `not_ready` if the DB is unreachable or a migration is pending |
+| POST | `/api/v1/auth/register` | anyone | `{email, password, display_name, client?: "web"\|"android", device_name?}` → 201. Creates a personal workspace (owner) |
+| POST | `/api/v1/auth/login` | anyone | same `client` rule; 401 `invalid_credentials` for a wrong password and an unknown email alike |
+| POST | `/api/v1/auth/refresh` | refresh token | web: cookie + `X-CSRF-Token`, no body; android: `{refresh_token}`. Rotates; a reused token revokes the session (401 `refresh_reused`) |
+| POST | `/api/v1/auth/logout` | signed in | revokes this session, clears cookies, 204 |
+| GET | `/api/v1/me` | signed in | |
+| GET | `/api/v1/me/sessions` | signed in | live sessions with device and `current` |
+| DELETE | `/api/v1/me/sessions/{id}` | signed in | own sessions only |
+| GET, POST | `/api/v1/workspaces` | signed in | list (paged) the caller's workspaces; create `{name, slug}` |
+| GET, PATCH, DELETE | `/api/v1/workspaces/{ws}` | viewer / admin / owner | |
+| GET, POST | `/api/v1/workspaces/{ws}/members` | viewer / admin | add `{email, role}` |
+| PATCH, DELETE | `/api/v1/workspaces/{ws}/members/{user}` | admin (self for leaving) | admins act only below their own role; the last owner can't be demoted or leave (409 `last_owner`) |
+| GET, POST | `/api/v1/workspaces/{ws}/projects` | viewer / maintainer | `?include_archived=true`; create `{name, kind: code\|analysis\|rebuild}` |
+| GET, PATCH, DELETE | `/api/v1/projects/{id}` | viewer / maintainer / admin | PATCH `{name?, archived?}` |
+
+Session delivery: web responses set `forge_at` (HttpOnly, `Path=/api`, 10 min), `forge_rt`
+(HttpOnly, `Path=/api/v1/auth`, 30 days) and `forge_csrf` (readable, sent back as
+`X-CSRF-Token` on every non-GET request), all `SameSite=Strict; Secure`. Android responses carry
+`access_token` and `refresh_token` in the body. Error codes added: `unauthenticated`,
+`invalid_credentials`, `invalid_refresh`, `refresh_reused`, `account_locked`, `csrf_failed`,
+`insufficient_role`, `email_taken`, `slug_taken`, `already_member`, `last_owner`,
+`rate_limited` (429 with `Retry-After`), `unsupported_media_type`, `too_large`.
+
+Not yet: OpenAPI generation, MFA, `/auth/login-code` + `/auth/exchange` (WebView, Phase 4),
+`/me/devices`, project members, Deep mode endpoint (Phase 5).
 
 ## 4. Workspaces, projects, members
 | Method | Path |
