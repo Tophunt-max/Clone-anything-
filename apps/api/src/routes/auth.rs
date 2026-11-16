@@ -302,7 +302,13 @@ pub async fn login(State(state): State<AppState>, meta: ClientMeta, Body(body): 
 struct TokenRow {
     session_id: Uuid,
     used: bool,
+    /// Used within the grace window: most likely the same client retrying a refresh whose answer
+    /// it never received (a tab closed or navigated mid-request).
+    recently_used: bool,
 }
+
+/// How long a just-used refresh token may be presented again without ending the session.
+pub const REUSE_GRACE_SECS: f64 = 30.0;
 
 pub async fn refresh(State(state): State<AppState>, meta: ClientMeta, headers: HeaderMap, body: axum::body::Bytes) -> Result<Response, ApiError> {
     limit(&state, format!("refresh:ip:{}", meta.ip_hash), state.limits.refresh_per_ip).await?;
@@ -330,14 +336,18 @@ pub async fn refresh(State(state): State<AppState>, meta: ClientMeta, headers: H
     let hash = tokens::hash_refresh(&token);
     let mut tx = state.db.begin().await?;
     // Lock the token row: of two refreshes racing with the same token, exactly one wins.
-    let row = sqlx::query_as::<_, TokenRow>("select session_id, used_at is not null as used from refresh_tokens where token_hash = $1 for update")
-        .bind(&hash)
-        .fetch_optional(&mut *tx)
-        .await?;
+    let row = sqlx::query_as::<_, TokenRow>(
+        "select session_id, used_at is not null as used, coalesce(used_at > now() - make_interval(secs => $2), false) as recently_used
+         from refresh_tokens where token_hash = $1 for update",
+    )
+    .bind(&hash)
+    .bind(REUSE_GRACE_SECS)
+    .fetch_optional(&mut *tx)
+    .await?;
     let Some(row) = row else {
         return Err(invalid());
     };
-    if row.used {
+    if row.used && !row.recently_used {
         // A used token came back: it was copied. End the whole session, for the thief and the owner.
         sqlx::query("update sessions set revoked_at = now(), revoke_reason = 'refresh_reuse' where id = $1 and revoked_at is null")
             .bind(row.session_id)
@@ -368,7 +378,16 @@ pub async fn refresh(State(state): State<AppState>, meta: ClientMeta, headers: H
     .fetch_optional(&mut *tx)
     .await?
     .ok_or_else(invalid)?;
-    sqlx::query("update refresh_tokens set used_at = now() where token_hash = $1").bind(&hash).execute(&mut *tx).await?;
+    if row.used {
+        // Grace retry: the token handed out last time (whose answer was lost) is superseded.
+        // Marking it used long ago means whoever presents it later ends the session.
+        sqlx::query("update refresh_tokens set used_at = now() - interval '1 day' where session_id = $1 and used_at is null")
+            .bind(row.session_id)
+            .execute(&mut *tx)
+            .await?;
+    } else {
+        sqlx::query("update refresh_tokens set used_at = now() where token_hash = $1").bind(&hash).execute(&mut *tx).await?;
+    }
     let (new_refresh, new_hash) = tokens::new_refresh().map_err(ApiError::internal)?;
     sqlx::query("insert into refresh_tokens (token_hash, session_id) values ($1, $2)").bind(new_hash).bind(row.session_id).execute(&mut *tx).await?;
     sqlx::query("update sessions set last_refreshed_at = now() where id = $1").bind(row.session_id).execute(&mut *tx).await?;

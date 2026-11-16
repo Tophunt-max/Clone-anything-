@@ -22,6 +22,10 @@ pnpm install
 pnpm --filter @forge/web dev                # proxies /api and /healthz to the API
 pnpm check && pnpm typecheck && pnpm test && pnpm build
 
+# Web end-to-end tests: starts the API (cargo run) and Vite, drives Chromium
+pnpm --filter @forge/web exec playwright install --only-shell chromium   # once
+FORGE_E2E_DATABASE_URL=postgres://forge:dev@127.0.0.1:5432/forge pnpm --filter @forge/web e2e
+
 # Design tokens: edit packages/design-tokens/tokens.json, then
 pnpm tokens                                 # writes CSS, Tailwind theme and ForgeTokens.kt
 

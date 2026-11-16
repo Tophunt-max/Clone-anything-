@@ -68,6 +68,46 @@ jobs:
       - run: pnpm test
       - run: pnpm build
 
+  e2e:
+    name: Web end-to-end (API + PostgreSQL + Chromium)
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: forge
+          POSTGRES_PASSWORD: forge-ci-only
+          POSTGRES_DB: forge
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U forge" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      CI: "1"
+      FORGE_E2E_DATABASE_URL: postgres://forge:forge-ci-only@127.0.0.1:5432/forge
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.97"
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build -p forge-api
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @forge/web exec playwright install --with-deps --only-shell chromium
+      - run: pnpm --filter @forge/web e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-report
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7
+
   android:
     name: Android
     runs-on: ubuntu-24.04

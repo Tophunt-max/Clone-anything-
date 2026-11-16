@@ -22,7 +22,7 @@ docs updated, this file updated (completed work, blockers, untested features).
 | 9 | Security review, testing, monitoring | Threat-model controls tested, E2E suite, backup/restore test, dashboards | Partly |
 | 10 | Deployment and release | Compose stack on Ubuntu 24.04, TLS, runbooks, signed Android release | Target host only |
 
-## Current status (end of Phase 2)
+## Current status (end of Phase 3)
 
 ### Phase 0
 | Item | Status |
@@ -72,6 +72,30 @@ docs updated, this file updated (completed work, blockers, untested features).
 | Optional TOTP MFA | Not implemented | |
 | WebView login code exchange | Not implemented | Phase 4 |
 | Encrypted provider/Git secrets | Not implemented | Phase 6–7, when those secrets exist |
+
+### Phase 3
+| Item | Status | Evidence |
+|---|---|---|
+| API client: CSRF header on writes, one shared refresh on 401 then one retry, session-ended callback, typed endpoints for auth, sessions, workspaces, members, projects | Implemented and verified | 11 unit tests |
+| Screen 4 Login, 5 Registration (validation, server field errors, safe `next` redirect) | Implemented and verified | component tests + Playwright against the real API |
+| Screen 6 Dashboard (recent projects, active sessions) | Implemented and verified | tests + E2E |
+| Screen 7 Project List (paging, archived filter, empty/forbidden states), 8 Create Project, 9 Project Overview (rename, archive, delete with confirmation, role-based controls) | Implemented and verified | tests + E2E |
+| Screen 34 Workspace Settings (rename, members: add, change role, remove, leave; create and delete workspace) | Implemented and verified (component level) | component tests; member flows not yet in E2E |
+| Screen 35 Security and Permissions (account, signed-in devices, sign out a device) | Implemented and verified | tests + E2E. MFA not available (not built in the API) |
+| Screen 38 Help and Diagnostics (server reachability, readiness, version, browser info, recent errors with request IDs); works signed out | Implemented and verified | tests + E2E |
+| Responsive shell: bottom navigation < 768 px, rail 768–1279 px, sidebar ≥ 1280 px; dark theme by default | Implemented and verified | Playwright at 375, 900, 1440 px: right navigation visible, no horizontal overflow, content next to the sidebar; screenshots reviewed |
+| Sessions in HttpOnly cookies, not readable by page scripts | Implemented and verified | E2E reads `document.cookie` |
+| Expired access cookie renewed transparently; refresh cut off by navigation keeps the session | Implemented and verified | 2 E2E tests; needed an API fix (below) |
+| Screen 37 Notifications | Not implemented | The API has no notifications yet; moved to the phase that produces the first notifications (agent and build events, Phases 6 and 8) |
+| Light theme switch | Partially implemented | Tokens exist; no toggle in the UI yet |
+| E2E job in CI | Implemented and verified | Green on GitHub Actions for PR #4 |
+
+**API fix found by the E2E tests.** When a browser navigates while a refresh is in flight, the
+server rotates the token but the new cookie never arrives; the next request presents the old
+token, and the strict reuse rule ended the session. A token used less than 30 seconds ago may
+now be presented again: it rotates once more and marks the lost token as long used, so whoever
+presents that one later still ends the session. Trade-off: a token copied and replayed within
+those 30 seconds also works once.
 
 ## Blockers and risks
 
