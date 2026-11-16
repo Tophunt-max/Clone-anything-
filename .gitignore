@@ -16,3 +16,10 @@ corpus/
 *.pfx
 *.key
 .claude/settings.local.json
+# Platform: JavaScript and Android build output
+node_modules/
+apps/web/dist/
+apps/android/.gradle/
+apps/android/**/build/
+apps/android/local.properties
+apps/android/.kotlin/

@@ -1,6 +1,7 @@
 # Architecture
 
-Status: **proposed** (Phase 0). Nothing in this document is implemented yet.
+Status: **proposed** (Phase 0). Product name: **Tophunt Forge** (Android id `com.tophunt.forge`).
+Phase 1 built the skeletons of `apps/api` and `apps/workers`; Phase 2 added PostgreSQL, authentication, RBAC and tenancy to the API; see [08-roadmap.md](08-roadmap.md) for what works.
 
 ## 1. Overview
 
@@ -36,7 +37,7 @@ approvals, the job queue, event fan-out (SSE and WebSocket), Git and build orche
 artifacts, usage, notifications, audit logging. It never runs engine tools or user code itself.
 
 ### apps/workers: the data plane
-A single Rust binary (`craft-worker`) with three roles, started by a supervisor inside an
+A single Rust binary (`forge-worker`) with three roles, started by a supervisor inside an
 isolated sandbox per workspace:
 
 - **engine**: links the original crates (`engine`, `ai`, `platform`, `engines`). Owns exactly
@@ -91,7 +92,10 @@ so long-running jobs survive client disconnects and API restarts.
 ## 4. Authentication model
 
 - Passwords hashed with Argon2id. Optional TOTP MFA.
-- Access token: signed JWT (EdDSA), 10-minute lifetime, carries user id, session id, device id.
+- Access token: 10-minute lifetime, carries user id and session id, signed with HMAC-SHA256 using
+  `FORGE_TOKEN_KEY` (format `fa1.<claims>.<mac>`). Only the API issues and checks tokens, so a
+  symmetric key is enough; this replaced the EdDSA JWT planned in Phase 0. Every request also
+  checks that the session is still live in the database, so revocation takes effect immediately.
 - Refresh token: opaque random 256-bit value, stored hashed, rotated on every use. Reuse of an old
   token revokes the whole session family.
 - **Browser**: the API sets the refresh token and a short-lived session cookie as `HttpOnly`,

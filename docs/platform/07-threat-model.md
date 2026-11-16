@@ -1,6 +1,6 @@
 # Security threat model
 
-Status: **proposed** (Phase 0). Method: STRIDE per trust boundary. Each threat lists the control
+Status: **proposed** (Phase 0). Phase 2 implemented and tested T1 (without MFA), T2, T3 (no tokens in JS), T4, T5 (without RLS), T6, T18 (passwords and refresh tokens only) and T21 (auth, workspace, member and project events). Method: STRIDE per trust boundary. Each threat lists the control
 and the phase that implements and tests it.
 
 ## 1. Assets

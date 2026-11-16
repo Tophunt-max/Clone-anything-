@@ -1,0 +1,23 @@
+@import "tailwindcss";
+@import "@forge/design-tokens/tokens.css";
+@import "@forge/design-tokens/tailwind-theme.css";
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--fx-bg-canvas);
+  color: var(--fx-text-primary);
+  font-family: var(--fx-font-sans);
+  font-size: var(--fx-text-body);
+  line-height: var(--fx-line-height);
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--fx-focus);
+  outline-offset: 2px;
+}
