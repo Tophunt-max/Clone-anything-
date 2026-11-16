@@ -1,6 +1,6 @@
 # UI implementation plan
 
-Status: **proposed** (Phase 0).
+Status: **proposed** (Phase 0). Phase 3 built screens 4–9, 34, 35 and 38 in React; screen 37 waits for a notifications API. See the roadmap.
 
 ## 1. Design system
 

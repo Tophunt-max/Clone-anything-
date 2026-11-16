@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { ApiError } from "@forge/api-client";
 
-// The shared wrapper for data screens: loading, error (with request id and retry), empty, ready.
-// Forbidden (403-type) states arrive with authentication in Phase 2.
+// The shared wrapper for data screens: loading, error (with request id and retry), forbidden,
+// empty, ready.
 export function StateView<T>({
   status,
   data,
@@ -31,6 +31,22 @@ export function StateView<T>({
   }
   if (status === "error" || data === undefined) {
     const e = error instanceof ApiError ? error : undefined;
+    if (e?.status === 403) {
+      return (
+        <div role="alert" className="rounded-lg border border-border-strong bg-bg-surface p-4">
+          <p className="font-semibold text-warning">You don't have access</p>
+          <p className="mt-1 text-small text-text-secondary">{e.message} Ask a workspace admin or owner.</p>
+        </div>
+      );
+    }
+    if (e?.status === 404) {
+      return (
+        <div role="alert" className="rounded-lg border border-border-strong bg-bg-surface p-4">
+          <p className="font-semibold">Not found</p>
+          <p className="mt-1 text-small text-text-secondary">It doesn't exist, or you don't have access to it.</p>
+        </div>
+      );
+    }
     return (
       <div role="alert" className="rounded-lg border border-border-strong bg-bg-surface p-4">
         <p className="font-semibold text-danger">{e?.title ?? "Something went wrong"}</p>
