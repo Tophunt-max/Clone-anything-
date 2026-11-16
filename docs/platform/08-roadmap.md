@@ -88,7 +88,7 @@ docs updated, this file updated (completed work, blockers, untested features).
 | Expired access cookie renewed transparently; refresh cut off by navigation keeps the session | Implemented and verified | 2 E2E tests; needed an API fix (below) |
 | Screen 37 Notifications | Not implemented | The API has no notifications yet; moved to the phase that produces the first notifications (agent and build events, Phases 6 and 8) |
 | Light theme switch | Partially implemented | Tokens exist; no toggle in the UI yet |
-| E2E job in CI | Implemented but not live-tested | Runs for the first time on this PR |
+| E2E job in CI | Implemented and verified | Green on GitHub Actions for PR #4 |
 
 **API fix found by the E2E tests.** When a browser navigates while a refresh is in flight, the
 server rotates the token but the new cookie never arrives; the next request presents the old
