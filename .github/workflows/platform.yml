@@ -67,7 +67,8 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-      - uses: android-actions/setup-android@v3
+      # ubuntu-24.04 runners ship the Android SDK (ANDROID_HOME) with accepted licences; AGP adds
+      # any missing platform itself. android-actions/setup-android@v3 failed there (no 'tools' package).
       - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew --no-daemon assembleDebug testDebugUnitTest assembleRelease
       - uses: actions/upload-artifact@v4
