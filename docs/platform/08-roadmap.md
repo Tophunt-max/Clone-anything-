@@ -44,7 +44,7 @@ docs updated, this file updated (completed work, blockers, untested features).
 | `packages/shared-types`, `packages/api-client` | Implemented and verified | api-client 4 tests (request ID, cookies, problem → `ApiError`, network errors) |
 | `apps/web` skeleton: responsive shell, home page reading `/api/v1/meta` with loading/error/retry, 404 route | Implemented and verified (unit level) | 4 tests; `vite build` succeeds. Not yet tested in a real browser at the three breakpoints (Playwright arrives in Phase 3) |
 | `apps/android` skeleton: Compose + Material 3 theme from tokens | Implemented and verified (build level) | `assembleDebug`, `assembleRelease`, 3 JVM unit tests pass here; release APK has `allowBackup=false`, cleartext off, not debuggable. Not run on a device or emulator |
-| CI workflow `.github/workflows/platform.yml` (rust, web, android jobs) | Implemented but not live-tested | Runs on the PR; results reported in the PR |
+| CI workflow `.github/workflows/platform.yml` (rust, web, android jobs) | Implemented and verified | All three jobs green on GitHub Actions for PR #2; upstream gate (`ci.yml`) green too |
 | `packages/ui`, `packages/websocket-client`, `packages/validation`, `packages/editor` | Not implemented | Created in the phase that first needs them (3, 3, 2, 7) instead of as empty folders |
 | `infrastructure/`, `tests/` (E2E) | Not implemented | Phases 2, 8, 9 |
 | Everything in Phases 2–10 | Not implemented | |
@@ -61,11 +61,11 @@ docs updated, this file updated (completed work, blockers, untested features).
 | B6 | No authenticated test Git repository | Criterion 9 | A dedicated test repo and token are needed |
 | B7 | ~~Product name~~ Resolved: Tophunt Forge. App icon still needed | Store listing | Phase 4 uses a plain generated icon until one is designed |
 | R1 | Scope: 38 screens, 3 runtimes, isolation infrastructure | Schedule | Strict phase gates; no screen is counted done without API integration and all states |
+| R3 | Upstream test `plugins::tests::a_plugin_that_exits_at_once_says_what_it_printed_and_leaves_a_log` is flaky on CI (broken pipe when the plugin exits before its first write); passed 30/30 locally and on re-run | Occasional red upstream gate | Re-run; report upstream if it recurs |
 | R2 | Upstream moves fast (1,050 commits) | Merge conflicts | Minimal upstream edits; inventory diff on each sync |
 
 ## Untested features
 
 - Web layout at real breakpoints in a browser (only jsdom unit tests so far).
 - Android app on a device or emulator.
-- The `platform.yml` CI workflow before its first run.
 - `cargo deny` licence check for the new Rust dependencies (axum, tokio, tracing, uuid) was not run; they are MIT or MIT/Apache-2.0, which `deny.toml` allows.
