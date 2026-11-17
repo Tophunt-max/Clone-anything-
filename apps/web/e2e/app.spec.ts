@@ -119,6 +119,51 @@ test("a refresh cut off by navigation doesn't sign the person out", async ({ pag
   await expect(page.getByText("this device")).toBeVisible();
 });
 
+test("the tool registry lists engine tools with their policy", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await register(page, unique());
+  await page.getByRole("complementary").getByRole("link", { name: "Tools" }).click();
+  await expect(page.getByRole("heading", { name: "Tool registry" })).toBeVisible();
+  await expect(page.getByText("core_session_show")).toBeVisible();
+  await page.getByLabel("Search").fill("build_command_run");
+  await expect(page.getByText("build_command_run")).toBeVisible();
+  await expect(page.getByText("needs approval").first()).toBeVisible();
+});
+
+test("upload a binary, analyze it, and see the evidence", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await register(page, unique());
+  // A project to analyze in, with Deep mode so the engine may read the file.
+  await page.getByRole("link", { name: "Create a project" }).click();
+  await page.getByLabel("Name").fill("Reverse engineering");
+  await page.getByLabel(/^Analysis/).check();
+  await page.getByRole("button", { name: "Create project" }).click();
+  await expect(page.getByRole("heading", { name: "Reverse engineering" })).toBeVisible();
+  // Reading inside a target needs Deep mode, with a stated authorization.
+  await page.getByLabel("Authorization").fill("we own this sample");
+  await page.getByRole("button", { name: "Turn on Deep mode" }).click();
+  await expect(page.getByText(/Deep mode is on/)).toBeVisible();
+  await page.getByRole("link", { name: "Binary" }).click();
+  await expect(page.getByRole("heading", { name: "Binary analyzer" })).toBeVisible();
+
+  // Upload a small real ELF-like file.
+  await page.getByLabel("File to analyze").setInputFiles({ name: "sample.bin", mimeType: "application/octet-stream", buffer: Buffer.from([0x7f, 0x45, 0x4c, 0x46, 0x02, 0x01, 0x01, 0, 0, 0, 0, 0, 0, 0, 0, 0]) });
+  await expect(page.getByText(/Uploaded/)).toBeVisible();
+
+  const triage = page.locator("li", { hasText: "Triage (what is it?)" });
+  await triage.getByRole("button", { name: "Run" }).click();
+  await expect(triage.getByText("View evidence")).toBeVisible({ timeout: 20_000 });
+  await triage.getByRole("link", { name: "View evidence" }).click();
+  await expect(page.getByRole("heading", { name: "Evidence" })).toBeVisible();
+  // The records list has at least one entry; open it to see the full evidence record.
+  const records = page.locator("section", { hasText: "Records" });
+  const first = records.getByRole("button").first();
+  await expect(first).toBeVisible({ timeout: 15_000 });
+  await first.click();
+  await expect(page.getByRole("heading", { name: "Evidence record" })).toBeVisible();
+  await expect(page.getByText("Full record")).toBeVisible();
+});
+
 test("help and diagnostics works signed out", async ({ page }) => {
   await page.goto("/help");
   await expect(page.getByText("The server answers.")).toBeVisible();

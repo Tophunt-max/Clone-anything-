@@ -43,7 +43,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt -p forge-api -p forge-worker --check
       - run: cargo clippy -p forge-api -p forge-worker --all-targets -- -D warnings
+      # Build the worker first: forge-api's engine tests spawn it from the same target dir.
+      - run: cargo build -p forge-worker
       - run: cargo test -p forge-api -p forge-worker
+        env:
+          FORGE_WORKSPACE_ROOT: ${{ runner.temp }}/forge-workspaces
       - run: cargo xtask layers
       - run: cargo xtask locks
       - name: Tool inventory is up to date
@@ -90,7 +94,7 @@ jobs:
         with:
           toolchain: "1.97"
       - uses: Swatinem/rust-cache@v2
-      - run: cargo build -p forge-api
+      - run: cargo build -p forge-api -p forge-worker
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -99,6 +103,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @forge/web exec playwright install --with-deps --only-shell chromium
       - run: pnpm --filter @forge/web e2e
+        env:
+          FORGE_WORKER_BIN: ${{ github.workspace }}/target/debug/forge-worker
+          FORGE_WORKSPACE_ROOT: ${{ runner.temp }}/forge-e2e-ws
       # The Android app's HTTP client against the same running API (register, projects, WebView hand-over).
       - uses: actions/setup-java@v4
         with:

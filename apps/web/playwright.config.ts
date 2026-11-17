@@ -29,6 +29,9 @@ export default defineConfig({
         FORGE_TOKEN_KEY: Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64"),
         // Plain HTTP on 127.0.0.1 in tests; production keeps Secure cookies.
         FORGE_COOKIE_SECURE: "false",
+        // The engine worker the API spawns, and a scratch workspace root for this run.
+        FORGE_WORKER_BIN: process.env.FORGE_WORKER_BIN ?? "forge-worker",
+        FORGE_WORKSPACE_ROOT: process.env.FORGE_WORKSPACE_ROOT ?? "/tmp/forge-e2e-ws",
         RUST_LOG: "warn",
       },
     },

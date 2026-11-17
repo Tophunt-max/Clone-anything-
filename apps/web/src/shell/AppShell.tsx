@@ -5,6 +5,7 @@ import { useCurrentWorkspace, useCurrentWorkspaceId } from "../lib/workspace.ts"
 const NAV = [
   { to: "/", label: "Dashboard", short: "Home", end: true },
   { to: "/projects", label: "Projects", short: "Projects", end: false },
+  { to: "/tools", label: "Tools", short: "Tools", end: false },
   { to: "/settings/workspace", label: "Workspace", short: "Team", end: false },
   { to: "/settings/security", label: "Security", short: "Security", end: false },
   { to: "/help", label: "Help", short: "Help", end: false },

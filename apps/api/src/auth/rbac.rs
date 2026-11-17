@@ -49,12 +49,20 @@ pub enum Action {
     CreateProject,
     EditProject,
     DeleteProject,
+    /// Run a read-only engine tool (view evidence, listings).
+    RunReadOnlyTool,
+    /// Run a tool that changes project state or uses the sandboxed worker.
+    RunTool,
+    /// Approve a tool that runs code or changes a device; turn Deep mode on or off.
+    ApproveSensitive,
 }
 
 pub fn minimum(action: Action) -> Role {
     match action {
-        Action::ViewWorkspace | Action::ViewProject => Role::Viewer,
+        Action::ViewWorkspace | Action::ViewProject | Action::RunReadOnlyTool => Role::Viewer,
+        Action::RunTool => Role::Editor,
         Action::CreateProject | Action::EditProject => Role::Maintainer,
+        Action::ApproveSensitive => Role::Maintainer,
         Action::RenameWorkspace | Action::ManageMembers | Action::DeleteProject => Role::Admin,
         Action::DeleteWorkspace => Role::Owner,
     }

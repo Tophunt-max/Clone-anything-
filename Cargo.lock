@@ -2720,7 +2720,9 @@ dependencies = [
  "axum",
  "base64 0.22.1",
  "chrono",
+ "forge-worker",
  "getrandom 0.3.4",
+ "hex",
  "hmac 0.12.1",
  "http-body-util",
  "serde",
@@ -2741,8 +2743,11 @@ version = "0.1.0"
 dependencies = [
  "craft-anything-ai",
  "craft-anything-engine",
+ "craft-anything-platform",
  "craft-anything-setup",
+ "serde",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]

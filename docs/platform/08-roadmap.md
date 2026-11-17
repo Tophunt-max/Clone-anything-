@@ -15,14 +15,14 @@ docs updated, this file updated (completed work, blockers, untested features).
 | 2 | Axum API, auth, PostgreSQL | Migrations, register/login/refresh/revoke, RBAC, tenant isolation tests, OpenAPI, health, rate limits | Yes: portable PostgreSQL 16.15 runs here (Phase 2) |
 | 3 | React app and API integration | Auth flows, dashboard, projects, settings, notifications, help; responsive tests | Yes |
 | 4 | Android shell and secure WebView | Native screens, WebView bridge with security tests, back navigation, offline | Build, unit and Robolectric Compose UI tests yes; a real WebView on a device/emulator no |
-| 5 | Engine adapter and tool registry | `forge-worker` engine role, worker protocol, policy + approvals, evidence index, analyzers (screens 16–20) | Engine yes; sandbox isolation no |
+| 5 | Engine adapter and tool registry | `forge-worker` engine role, worker protocol, policy + approvals, evidence index, analyzers (screens 16–20) | Engine, protocol, policy, approvals, evidence and analyzers verified here; container isolation of workers deferred to Phase 8 |
 | 6 | AI assistant and multi-agent orchestration | Providers, chat, plans, tasks, worktrees, streaming, cost tracking | Partly (needs a real AI key for live tests) |
 | 7 | Monaco editor, terminal, Git | Editor with ETag conflicts, PTY terminal, Git operations with credentials | Partly (terminal isolation needs containers) |
 | 8 | Build workers and artifacts | Queue, toolchain images, logs, tests, artifacts, quotas | CI / target host only |
 | 9 | Security review, testing, monitoring | Threat-model controls tested, E2E suite, backup/restore test, dashboards | Partly |
 | 10 | Deployment and release | Compose stack on Ubuntu 24.04, TLS, runbooks, signed Android release | Target host only |
 
-## Current status (end of Phase 4)
+## Current status (end of Phase 5)
 
 ### Phase 0
 | Item | Status |
@@ -117,6 +117,30 @@ those 30 seconds also works once.
 **Bug found by the tests:** the app's JSON encoder left out default values, so `client: "android"`
 was never sent and the server answered as to a browser (cookies, no tokens). Defaults are now
 always encoded, and `HttpBackendTest` checks the request body.
+
+### Phase 5
+| Item | Status | Evidence |
+|---|---|---|
+| `forge-worker` engine role: runs the original `Engine` for one project, newline-JSON protocol (health, catalog, set-deep, call with consent + deadline, cancel, shutdown), progress streamed | Implemented and verified | 7 worker tests run real tools; one records real evidence on `/bin/true` |
+| Protocol shared with the API without the engine (forge-worker `default-features = false`) | Implemented and verified | round-trip test; forge-api links only the protocol |
+| API worker client + bounded per-project pool (lazy spawn, LRU eviction, Deep-mode switch, clean shutdown) | Implemented and verified | engine integration tests spawn real workers |
+| Hosted policy per tool (viewer / editor / editor-worker / approval-gate / operator-only / unavailable), from declared effects | Implemented and verified | policy unit tests + `/tools` returns policy |
+| `GET /tools`, `GET /tools/{id}`: catalogue with policy (screen 20) | Implemented and verified | API + web + e2e tests |
+| `POST /projects/{id}/tool-calls`: policy + role check; consent tools need a one-time approval; records evidence and the execution | Implemented and verified | runs `core_target_triage` on a real file end to end; records evidence |
+| Approvals: 409 with an id → maintainer approves → single-use grant (threat model T11, T20) | Implemented and verified | approval + single-use + role tests |
+| Evidence index + `GET /evidence`, `GET /evidence/{ev}` (screen 19) | Implemented and verified | evidence returned and shown; web + e2e |
+| `POST /projects/{id}/targets`: upload a file to analyze (64 MiB cap, safe filename, role-gated) | Implemented and verified | upload + traversal + viewer tests |
+| `POST /projects/{id}/deep-mode`: per-project Deep mode, maintainer-only, with a recorded authorization (threat model T20) | Implemented and verified | API + web + e2e |
+| Binary analyzer (screen 18): upload → triage/open/functions/strings | Implemented and verified | e2e uploads a file, analyzes it, opens the evidence |
+| APK analyzer (screen 16): upload → package/components/classes/resources | Implemented but not live-tested | built and unit/e2e-wired; no real APK was analyzed here |
+| Website analyzer (screen 17): open a site in a sandboxed browser | Partially implemented | the screen and the `web_site_open` call work, but the engine needs Chromium installed on the worker, which this host does not have; shows that clearly |
+| Evidence explorer (screen 19) | Implemented and verified | web + e2e |
+| Secret redaction of tool params before storage/logging | Implemented and verified | redact unit test |
+| Container isolation of workers (rootless, quotas, no host access, egress proxy) | Not implemented | Phase 8; workers run as plain child processes for now |
+
+**Note on isolation.** Workers are plain child processes in this phase. The sandbox here cannot
+run containers, so real isolation (threat model T12–T15) is deferred to Phase 8 and the target
+host; the worker protocol and everything above it do not change when that wrapper is added.
 
 ## Blockers and risks
 

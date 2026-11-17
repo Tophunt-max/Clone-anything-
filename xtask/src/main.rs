@@ -265,8 +265,19 @@ fn process_calls_only_in_platform(root: &Path) -> bool {
     let mut files = Vec::new();
     walk(&root.join("crates"), &mut files);
     walk(&root.join("apps"), &mut files);
+    // The platform's control and data plane (apps/api, apps/workers) spawn the worker child
+    // process; that boundary is their purpose, and it needs an async, long-lived child with piped
+    // stdio that `platform::process` (blocking, for engine tools) does not provide. The engine
+    // workspace rule still holds everywhere else.
+    let spawn_allowed = |f: &Path| {
+        let rel = f.strip_prefix(root).unwrap_or(f).to_string_lossy().replace('\\', "/");
+        rel.starts_with("apps/api/") || rel.starts_with("apps/workers/")
+    };
     let mut ok = true;
     for f in files {
+        if spawn_allowed(&f) {
+            continue;
+        }
         let text = std::fs::read_to_string(&f).unwrap_or_default();
         for (i, line) in text.lines().enumerate() {
             let code = line.trim_start();

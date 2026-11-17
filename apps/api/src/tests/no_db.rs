@@ -24,6 +24,10 @@ fn state(request_timeout: Duration) -> AppState {
         trust_proxy: false,
         limits: Default::default(),
         limiter: Default::default(),
+        engine: std::sync::Arc::new(crate::engine::EnginePool::new(
+            crate::engine::WorkerLaunch { program: "forge-worker-absent".into(), workspace_root: std::env::temp_dir().join("forge-nodb") },
+            1,
+        )),
     }
 }
 

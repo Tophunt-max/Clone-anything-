@@ -88,6 +88,69 @@ export interface Member {
   created_at: string;
 }
 
+export type ToolPolicy = "viewer" | "editor" | "editor_worker" | "approval_gate" | "operator_only" | "unavailable";
+
+/** One entry of `GET /api/v1/tools`. */
+export interface Tool {
+  id: string;
+  layer: "engine" | "ai_or_setup";
+  toolset: string;
+  title: string;
+  summary: string;
+  effects: string[];
+  needs_consent: boolean;
+  read_only: boolean;
+  requires: string;
+  available_here: boolean;
+  policy: ToolPolicy;
+  input_schema: unknown;
+}
+
+/** Result of `POST /projects/{id}/tool-calls` (when it runs). */
+export interface ToolCallResult {
+  status: "succeeded";
+  tool: string;
+  policy: ToolPolicy;
+  output: unknown;
+  evidence_id: string | null;
+  duration_ms: number;
+}
+
+/** One past tool run. */
+export interface ToolExecution {
+  id: string;
+  tool: string;
+  policy: string;
+  status: "succeeded" | "failed";
+  error_code: string | null;
+  evidence_id: string | null;
+  duration_ms: number | null;
+  created_at: string;
+}
+
+/** An evidence record in the project index (summary row). */
+export interface EvidenceRow {
+  evidence_id: string;
+  operation: string;
+  confidence: string | null;
+  summary: string;
+  tool: string | null;
+  subject: { kind?: string; name?: string; sha256?: string } & Record<string, unknown>;
+  created_at: string;
+}
+
+/** A pending approval for a tool that runs code or changes a device. */
+export interface Approval {
+  id: string;
+  project_id: string;
+  subject_kind: "tool_call" | "deep_mode";
+  tool: string | null;
+  summary: string;
+  status: string;
+  created_at: string;
+  expires_at: string;
+}
+
 export type ProjectKind = "code" | "analysis" | "rebuild";
 
 export interface Project {
