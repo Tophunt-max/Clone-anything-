@@ -5,7 +5,7 @@
 // - State-changing requests echo the readable `forge_csrf` cookie in `X-CSRF-Token`.
 // - A 401 on a signed-in call triggers one refresh (shared by concurrent callers), then one retry.
 // - Error responses become `ApiError`, built from the server's problem body.
-import type { DeviceSession, Health, Member, Meta, Page, Problem, Project, ProjectKind, Role, SessionStart, User, Workspace } from "@forge/shared-types";
+import type { Approval, DeviceSession, EvidenceRow, Health, Member, Meta, Page, Problem, Project, ProjectKind, Role, SessionStart, Tool, ToolCallResult, ToolExecution, User, Workspace } from "@forge/shared-types";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -168,7 +168,42 @@ export function createApiClient(opts: ApiClientOptions = {}) {
     project: (id: string, signal?: AbortSignal) => call<Project>("GET", `/api/v1/projects/${enc(id)}`, { signal }),
     updateProject: (id: string, b: { name?: string; archived?: boolean }) => call<Project>("PATCH", `/api/v1/projects/${enc(id)}`, { body: b }),
     deleteProject: (id: string) => call<void>("DELETE", `/api/v1/projects/${enc(id)}`),
+    setDeepMode: (id: string, enabled: boolean, authorization?: string) => call<Project>("POST", `/api/v1/projects/${enc(id)}/deep-mode`, { body: { enabled, ...(authorization ? { authorization } : {}) } }),
+
+    /** Uploads a file to analyze (raw body). Returns the server path to pass as a tool's `path`. */
+    uploadTarget: async (projectId: string, file: File): Promise<{ path: string; name: string; size: number; sha256: string }> => {
+      const requestId = newId();
+      const headers: Record<string, string> = { Accept: "application/json", "X-Request-Id": requestId, "Content-Type": "application/octet-stream" };
+      const csrf = readCsrf();
+      if (csrf) headers["X-CSRF-Token"] = csrf;
+      let resp: Response;
+      try {
+        resp = await doFetch(`${base}/api/v1/projects/${enc(projectId)}/targets?name=${encodeURIComponent(file.name)}`, { method: "POST", credentials: "include", headers, body: file });
+      } catch {
+        throw new ApiError(0, "network_error", "Can't reach the server", "Check your connection, then try again.", requestId);
+      }
+      const id = resp.headers.get("x-request-id") ?? requestId;
+      const text = await resp.text();
+      const body: unknown = text ? JSON.parse(text) : undefined;
+      if (!resp.ok) {
+        if (isProblem(body)) throw new ApiError(resp.status, body.code, body.title, body.detail, body.request_id ?? id, body.field);
+        throw new ApiError(resp.status, "http_error", `HTTP ${resp.status}`, "The upload failed.", id);
+      }
+      return body as { path: string; name: string; size: number; sha256: string };
+    },
+    tools: (signal?: AbortSignal) => call<Tool[]>("GET", "/api/v1/tools", { signal }),
+    tool: (id: string, signal?: AbortSignal) => call<Tool>("GET", `/api/v1/tools/${enc(id)}`, { signal }),
+    runTool: (projectId: string, b: { tool: string; params?: unknown; approval_id?: string }) => call<ToolCallResult>("POST", `/api/v1/projects/${enc(projectId)}/tool-calls`, { body: b }),
+    executions: (projectId: string, a: PageArgs = {}) => call<Page<ToolExecution>>("GET", `/api/v1/projects/${enc(projectId)}/tool-calls${q({ cursor: a.cursor, limit: a.limit })}`, { signal: a.signal }),
+    evidence: (projectId: string, a: PageArgs & { operation?: string } = {}) =>
+      call<Page<EvidenceRow>>("GET", `/api/v1/projects/${enc(projectId)}/evidence${q({ cursor: a.cursor, limit: a.limit, operation: a.operation })}`, { signal: a.signal }),
+    evidenceRecord: (projectId: string, evidenceId: string, signal?: AbortSignal) => call<unknown>("GET", `/api/v1/projects/${enc(projectId)}/evidence/${enc(evidenceId)}`, { signal }),
+    approvals: (ws: string, a: PageArgs = {}) => call<Page<Approval>>("GET", `/api/v1/workspaces/${enc(ws)}/approvals${q({ cursor: a.cursor, limit: a.limit })}`, { signal: a.signal }),
+    approve: (id: string) => call<void>("POST", `/api/v1/approvals/${enc(id)}/approve`),
+    reject: (id: string) => call<void>("POST", `/api/v1/approvals/${enc(id)}/reject`),
   };
 }
+
+export type { ApiError as ApiErrorType };
 
 export type ApiClient = ReturnType<typeof createApiClient>;

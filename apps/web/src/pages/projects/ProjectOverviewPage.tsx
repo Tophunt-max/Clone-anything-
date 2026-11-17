@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import type { Project } from "@forge/shared-types";
 import { useApi } from "../../api.ts";
 import { StateView } from "../../components/StateView.tsx";
-import { Badge, Button, Card, FormError, PageHeader, TextField, formatDate } from "../../components/ui.tsx";
+import { Badge, Button, Card, FormError, PageHeader, TextField, fieldError, formatDate } from "../../components/ui.tsx";
 import { atLeast, useWorkspaces } from "../../lib/workspace.ts";
 
 export function ProjectOverviewPage() {
@@ -89,6 +89,16 @@ function Overview({ project: p }: { project: Project }) {
         </Card>
       )}
       {update.error && <FormError error={update.error} />}
+      {atLeast(role, "maintainer") && <DeepModeToggle project={p} onChanged={done} />}
+      <Card title="Analyze" className="mb-4">
+        <p className="mb-3 text-small text-text-secondary">Study a target with the engine. Findings are recorded as evidence.</p>
+        <div className="flex flex-wrap gap-2">
+          <Link to={`/p/${p.id}/analyze/binary`} className="rounded-md border border-border-strong bg-bg-field px-3 py-1.5 text-small hover:bg-bg-raised">Binary</Link>
+          <Link to={`/p/${p.id}/analyze/apk`} className="rounded-md border border-border-strong bg-bg-field px-3 py-1.5 text-small hover:bg-bg-raised">APK</Link>
+          <Link to={`/p/${p.id}/analyze/web`} className="rounded-md border border-border-strong bg-bg-field px-3 py-1.5 text-small hover:bg-bg-raised">Website</Link>
+          <Link to={`/p/${p.id}/evidence`} className="rounded-md border border-border-strong bg-bg-field px-3 py-1.5 text-small hover:bg-bg-raised">Evidence</Link>
+        </div>
+      </Card>
       <Card title="Details">
         <dl className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <Item label="Kind" value={p.kind} />
@@ -131,5 +141,35 @@ function Item({ label, value, mono = false }: { label: string; value: string; mo
       <dt className="text-caption text-text-muted">{label}</dt>
       <dd className={`truncate ${mono ? "font-mono text-code" : ""}`}>{value}</dd>
     </div>
+  );
+}
+
+function DeepModeToggle({ project, onChanged }: { project: Project; onChanged: (p: Project) => void }) {
+  const api = useApi();
+  const [authorization, setAuthorization] = useState("");
+  const set = useMutation({ mutationFn: (enabled: boolean) => api.setDeepMode(project.id, enabled, enabled ? authorization : undefined), onSuccess: onChanged });
+  return (
+    <Card className="mb-4" title="Analysis mode">
+      <p className="text-small text-text-secondary">
+        {project.deep_mode
+          ? "Deep mode is on: tools may read inside targets (code, files, page source)."
+          : "Clean room: tools study targets only from the outside. Turn on Deep mode to read inside, which you must be authorized to do."}
+      </p>
+      {project.deep_mode ? (
+        <Button className="mt-3" variant="secondary" busy={set.isPending} onClick={() => set.mutate(false)}>
+          Turn off Deep mode
+        </Button>
+      ) : (
+        <div className="mt-3 flex flex-col gap-2">
+          <TextField label="Authorization" placeholder="e.g. we own this software / written permission on file" value={authorization} onChange={(e) => setAuthorization(e.target.value)} error={fieldError(set.error, "authorization")} />
+          <div>
+            <Button busy={set.isPending} disabled={!authorization.trim()} onClick={() => set.mutate(true)}>
+              Turn on Deep mode
+            </Button>
+          </div>
+        </div>
+      )}
+      {set.error && !fieldError(set.error, "authorization") && <FormError error={set.error} />}
+    </Card>
   );
 }

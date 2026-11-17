@@ -11,6 +11,11 @@ import { RegisterPage } from "./pages/auth/RegisterPage.tsx";
 import { CreateProjectPage } from "./pages/projects/CreateProjectPage.tsx";
 import { ProjectListPage } from "./pages/projects/ProjectListPage.tsx";
 import { ProjectOverviewPage } from "./pages/projects/ProjectOverviewPage.tsx";
+import { ToolRegistryPage } from "./pages/ToolRegistryPage.tsx";
+import { EvidenceExplorerPage } from "./pages/analyze/EvidenceExplorerPage.tsx";
+import { BinaryAnalyzerPage } from "./pages/analyze/BinaryAnalyzerPage.tsx";
+import { ApkAnalyzerPage } from "./pages/analyze/ApkAnalyzerPage.tsx";
+import { WebsiteAnalyzerPage } from "./pages/analyze/WebsiteAnalyzerPage.tsx";
 import { SecurityPage } from "./pages/settings/SecurityPage.tsx";
 import { WorkspaceSettingsPage } from "./pages/settings/WorkspaceSettingsPage.tsx";
 
@@ -45,6 +50,11 @@ export const routes: RouteObject[] = [
           { path: "projects", element: <ProjectListPage /> },
           { path: "projects/new", element: <CreateProjectPage /> },
           { path: "p/:id", element: <ProjectOverviewPage /> },
+          { path: "p/:id/evidence", element: <EvidenceExplorerPage /> },
+          { path: "p/:id/analyze/binary", element: <BinaryAnalyzerPage /> },
+          { path: "p/:id/analyze/apk", element: <ApkAnalyzerPage /> },
+          { path: "p/:id/analyze/web", element: <WebsiteAnalyzerPage /> },
+          { path: "tools", element: <ToolRegistryPage /> },
           { path: "settings/workspace", element: <WorkspaceSettingsPage /> },
           { path: "settings/security", element: <SecurityPage /> },
           { path: "*", element: <NotFoundPage /> },

@@ -1601,7 +1601,6 @@ dependencies = [
 [[package]]
 name = "craft-update"
 version = "0.1.0"
-source = "git+https://github.com/storytold/craft-libs?rev=6ac2a6a34ae83fc0f0bfb25a569ba6388b72266a#6ac2a6a34ae83fc0f0bfb25a569ba6388b72266a"
 dependencies = [
  "chrono",
  "dunce",
@@ -2720,7 +2719,9 @@ dependencies = [
  "axum",
  "base64 0.22.1",
  "chrono",
+ "forge-worker",
  "getrandom 0.3.4",
+ "hex",
  "hmac 0.12.1",
  "http-body-util",
  "serde",
@@ -2741,8 +2742,11 @@ version = "0.1.0"
 dependencies = [
  "craft-anything-ai",
  "craft-anything-engine",
+ "craft-anything-platform",
  "craft-anything-setup",
+ "serde",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]

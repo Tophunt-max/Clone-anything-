@@ -4,8 +4,10 @@
 //! database tests; without it they are skipped with a note, so `cargo test --workspace` works on
 //! machines with no database. CI sets `FORGE_REQUIRE_DB_TESTS=1`, which turns a skip into a failure.
 
+mod analyze;
 mod auth;
 mod basics;
+mod engine_calls;
 mod no_db;
 mod tenancy;
 mod webview;
@@ -28,6 +30,31 @@ use crate::limits::{Limit, Limits};
 pub struct TestApp {
     pub router: Router,
     pub db: PgPool,
+    pub state: AppState,
+}
+
+/// The `forge-worker` binary cargo built for these tests (same target dir), falling back to the
+/// name on PATH. Engine tests are skipped if it isn't found.
+pub fn worker_bin() -> std::path::PathBuf {
+    let exe = std::env::current_exe().ok();
+    // target/debug/deps/forge_api-… → target/debug/forge-worker
+    let candidate = exe.as_ref().and_then(|p| p.parent()).and_then(|p| p.parent()).map(|dir| dir.join("forge-worker"));
+    match candidate {
+        Some(p) if p.exists() => p,
+        _ => std::path::PathBuf::from("forge-worker"),
+    }
+}
+
+pub fn have_worker() -> bool {
+    let p = worker_bin();
+    p.exists() || which(&p)
+}
+
+fn which(name: &std::path::Path) -> bool {
+    if name.components().count() > 1 {
+        return name.exists();
+    }
+    std::env::var_os("PATH").map(|paths| std::env::split_paths(&paths).any(|dir| dir.join(name).exists())).unwrap_or(false)
 }
 
 fn generous() -> Limits {
@@ -51,16 +78,19 @@ pub async fn app_with(limits: Limits) -> Option<TestApp> {
     sqlx::raw_sql(sqlx::AssertSqlSafe(format!("create database {name}"))).execute(&mut admin).await.unwrap();
     let db = PgPoolOptions::new().max_connections(5).connect_with(admin_opts.database(&name)).await.unwrap();
     crate::MIGRATOR.run(&db).await.unwrap();
+    let launch =
+        crate::engine::WorkerLaunch { program: worker_bin(), workspace_root: std::env::temp_dir().join(format!("forge-ws-{}", uuid::Uuid::now_v7().simple())) };
     let state = AppState {
         db: db.clone(),
         token_key: TokenKey::new(vec![9; 32]).unwrap(),
-        request_timeout: Duration::from_secs(20),
+        request_timeout: Duration::from_secs(60),
         cookie_secure: true,
         trust_proxy: false,
         limits,
         limiter: Default::default(),
+        engine: std::sync::Arc::new(crate::engine::EnginePool::new(launch, 4)),
     };
-    Some(TestApp { router: crate::router(state, 64 * 1024), db })
+    Some(TestApp { router: crate::router(state.clone(), 1024 * 1024), db, state })
 }
 
 /// How a request authenticates.

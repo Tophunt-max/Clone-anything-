@@ -68,7 +68,7 @@ async fn errors_are_problem_json_with_the_request_id() {
 #[tokio::test]
 async fn oversized_bodies_are_refused() {
     let Some(app) = app().await else { return };
-    let big = "x".repeat(100 * 1024);
+    let big = "x".repeat(2 * 1024 * 1024);
     let r = app.call(Method::POST, "/api/v1/auth/login", &As::Nobody, Some(json!({"email": "a@b.co", "password": big}))).await;
     assert_eq!(r.status, StatusCode::PAYLOAD_TOO_LARGE);
 }
