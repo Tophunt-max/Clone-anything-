@@ -148,23 +148,28 @@ fn session_response(state: &AppState, status: StatusCode, client: ClientKind, us
             out.refresh_token = Some(issued.refresh);
         }
         ClientKind::Web => {
-            let csrf = tokens::new_csrf().map_err(ApiError::internal)?;
-            let secure = state.cookie_secure;
-            let session_secs = SESSION_TTL_DAYS * 86_400;
-            for c in [
-                cookies::set(cookies::ACCESS, &issued.access, cookies::ACCESS_PATH, ACCESS_TTL_SECS, true, secure),
-                cookies::set(cookies::REFRESH, &issued.refresh, cookies::REFRESH_PATH, session_secs, true, secure),
-                cookies::set(cookies::CSRF, &csrf, cookies::CSRF_PATH, session_secs, false, secure),
-            ]
-            .into_iter()
-            .flatten()
-            {
-                headers.append(SET_COOKIE, c);
-            }
-            out.csrf_token = Some(csrf);
+            out.csrf_token = Some(web_cookies(state, &issued, &mut headers)?);
         }
     }
     Ok((status, headers, Json(out)).into_response())
+}
+
+/// Sets the three browser cookies for a new session; returns the CSRF token.
+fn web_cookies(state: &AppState, issued: &Issued, headers: &mut HeaderMap) -> Result<String, ApiError> {
+    let csrf = tokens::new_csrf().map_err(ApiError::internal)?;
+    let secure = state.cookie_secure;
+    let session_secs = SESSION_TTL_DAYS * 86_400;
+    for c in [
+        cookies::set(cookies::ACCESS, &issued.access, cookies::ACCESS_PATH, ACCESS_TTL_SECS, true, secure),
+        cookies::set(cookies::REFRESH, &issued.refresh, cookies::REFRESH_PATH, session_secs, true, secure),
+        cookies::set(cookies::CSRF, &csrf, cookies::CSRF_PATH, session_secs, false, secure),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        headers.append(SET_COOKIE, c);
+    }
+    Ok(csrf)
 }
 
 async fn limit(state: &AppState, key: String, l: crate::limits::Limit) -> Result<(), ApiError> {
@@ -302,7 +307,13 @@ pub async fn login(State(state): State<AppState>, meta: ClientMeta, Body(body): 
 struct TokenRow {
     session_id: Uuid,
     used: bool,
+    /// Used within the grace window: most likely the same client retrying a refresh whose answer
+    /// it never received (a tab closed or navigated mid-request).
+    recently_used: bool,
 }
+
+/// How long a just-used refresh token may be presented again without ending the session.
+pub const REUSE_GRACE_SECS: f64 = 30.0;
 
 pub async fn refresh(State(state): State<AppState>, meta: ClientMeta, headers: HeaderMap, body: axum::body::Bytes) -> Result<Response, ApiError> {
     limit(&state, format!("refresh:ip:{}", meta.ip_hash), state.limits.refresh_per_ip).await?;
@@ -330,14 +341,18 @@ pub async fn refresh(State(state): State<AppState>, meta: ClientMeta, headers: H
     let hash = tokens::hash_refresh(&token);
     let mut tx = state.db.begin().await?;
     // Lock the token row: of two refreshes racing with the same token, exactly one wins.
-    let row = sqlx::query_as::<_, TokenRow>("select session_id, used_at is not null as used from refresh_tokens where token_hash = $1 for update")
-        .bind(&hash)
-        .fetch_optional(&mut *tx)
-        .await?;
+    let row = sqlx::query_as::<_, TokenRow>(
+        "select session_id, used_at is not null as used, coalesce(used_at > now() - make_interval(secs => $2), false) as recently_used
+         from refresh_tokens where token_hash = $1 for update",
+    )
+    .bind(&hash)
+    .bind(REUSE_GRACE_SECS)
+    .fetch_optional(&mut *tx)
+    .await?;
     let Some(row) = row else {
         return Err(invalid());
     };
-    if row.used {
+    if row.used && !row.recently_used {
         // A used token came back: it was copied. End the whole session, for the thief and the owner.
         sqlx::query("update sessions set revoked_at = now(), revoke_reason = 'refresh_reuse' where id = $1 and revoked_at is null")
             .bind(row.session_id)
@@ -368,7 +383,16 @@ pub async fn refresh(State(state): State<AppState>, meta: ClientMeta, headers: H
     .fetch_optional(&mut *tx)
     .await?
     .ok_or_else(invalid)?;
-    sqlx::query("update refresh_tokens set used_at = now() where token_hash = $1").bind(&hash).execute(&mut *tx).await?;
+    if row.used {
+        // Grace retry: the token handed out last time (whose answer was lost) is superseded.
+        // Marking it used long ago means whoever presents it later ends the session.
+        sqlx::query("update refresh_tokens set used_at = now() - interval '1 day' where session_id = $1 and used_at is null")
+            .bind(row.session_id)
+            .execute(&mut *tx)
+            .await?;
+    } else {
+        sqlx::query("update refresh_tokens set used_at = now() where token_hash = $1").bind(&hash).execute(&mut *tx).await?;
+    }
     let (new_refresh, new_hash) = tokens::new_refresh().map_err(ApiError::internal)?;
     sqlx::query("insert into refresh_tokens (token_hash, session_id) values ($1, $2)").bind(new_hash).bind(row.session_id).execute(&mut *tx).await?;
     sqlx::query("update sessions set last_refreshed_at = now() where id = $1").bind(row.session_id).execute(&mut *tx).await?;
@@ -418,4 +442,121 @@ pub fn clear_cookies(state: &AppState) -> HeaderMap {
         headers.append(SET_COOKIE, c);
     }
     headers
+}
+
+pub const LOGIN_CODE_TTL_SECS: i64 = 60;
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct LoginCodeOut {
+    pub code: String,
+    pub expires_in_secs: i64,
+}
+
+/// A signed-in app asks for a single-use code to open its WebView signed in, without putting a
+/// token in a URL or in page storage. Valid 60 seconds, once.
+pub async fn login_code(State(state): State<AppState>, meta: ClientMeta, user: AuthUser) -> Result<(StatusCode, Json<LoginCodeOut>), ApiError> {
+    limit(&state, format!("login_code:user:{}", user.user_id), state.limits.refresh_per_ip).await?;
+    let (code, hash) = tokens::new_login_code().map_err(ApiError::internal)?;
+    let mut tx = state.db.begin().await?;
+    sqlx::query("insert into login_codes (code_hash, user_id, source_session_id, expires_at) values ($1, $2, $3, now() + make_interval(secs => $4))")
+        .bind(hash)
+        .bind(user.user_id)
+        .bind(user.session_id)
+        .bind(LOGIN_CODE_TTL_SECS as f64)
+        .execute(&mut *tx)
+        .await?;
+    audit::record(
+        &mut tx,
+        Entry {
+            workspace_id: None,
+            actor_user_id: Some(user.user_id),
+            action: "auth.login_code",
+            target_kind: "session",
+            target_id: Some(user.session_id),
+            ip_hash: Some(&meta.ip_hash),
+            details: json!({}),
+        },
+    )
+    .await?;
+    tx.commit().await?;
+    Ok((StatusCode::CREATED, Json(LoginCodeOut { code, expires_in_secs: LOGIN_CODE_TTL_SECS })))
+}
+
+#[derive(Deserialize)]
+pub struct ExchangeForm {
+    code: String,
+    next: Option<String>,
+}
+
+#[derive(sqlx::FromRow)]
+struct CodeRow {
+    user_id: Uuid,
+    usable: bool,
+}
+
+/// Same-site paths only, so a crafted `next` can't send the WebView to another site.
+pub fn safe_next(next: Option<&str>) -> &str {
+    match next {
+        Some(n) if n.starts_with('/') && !n.starts_with("//") && !n.starts_with("/\\") && n.len() <= 512 && !n.chars().any(char::is_control) => n,
+        _ => "/",
+    }
+}
+
+/// The WebView's first navigation: a form POST with the code. Answers with the browser session
+/// cookies and a redirect into the app. A code is used once; the session it came from must
+/// still be live.
+pub async fn exchange(
+    State(state): State<AppState>,
+    meta: ClientMeta,
+    headers: HeaderMap,
+    form: Result<axum::Form<ExchangeForm>, axum::extract::rejection::FormRejection>,
+) -> Result<Response, ApiError> {
+    // A page on another site could post a code of its own (login CSRF). Browsers and WebViews
+    // mark such posts `Sec-Fetch-Site: cross-site`; the app's own navigation is `none`.
+    if headers.get("sec-fetch-site").and_then(|v| v.to_str().ok()) == Some("cross-site") {
+        return Err(ApiError::forbidden("cross_site", "This sign-in link must be opened by the app."));
+    }
+    let axum::Form(form) = form.map_err(|_| ApiError::invalid("code", "Send the code as a form field."))?;
+    let invalid = || ApiError::unauthorized("invalid_code", "This sign-in link has expired or was already used. Open the project again from the app.");
+    if !tokens::looks_like_login_code(&form.code) {
+        return Err(invalid());
+    }
+    let hash = tokens::hash_refresh(&form.code);
+    let mut tx = state.db.begin().await?;
+    let row = sqlx::query_as::<_, CodeRow>(
+        "select c.user_id, (c.used_at is null and c.expires_at > now() and s.revoked_at is null and s.expires_at > now() and u.status = 'active') as usable
+         from login_codes c join sessions s on s.id = c.source_session_id join users u on u.id = c.user_id
+         where c.code_hash = $1 for update of c",
+    )
+    .bind(&hash)
+    .fetch_optional(&mut *tx)
+    .await?;
+    let Some(row) = row else { return Err(invalid()) };
+    // Mark it used even when it is no longer usable, so a code is never tried twice.
+    sqlx::query("update login_codes set used_at = coalesce(used_at, now()) where code_hash = $1").bind(&hash).execute(&mut *tx).await?;
+    if !row.usable {
+        tx.commit().await?;
+        return Err(invalid());
+    }
+    let issued = start_session(&mut tx, &state, row.user_id, ClientKind::Android, Some("Android app (web view)")).await?;
+    audit::record(
+        &mut tx,
+        Entry {
+            workspace_id: None,
+            actor_user_id: Some(row.user_id),
+            action: "auth.exchange",
+            target_kind: "session",
+            target_id: Some(issued.session_id),
+            ip_hash: Some(&meta.ip_hash),
+            details: json!({}),
+        },
+    )
+    .await?;
+    tx.commit().await?;
+    let mut out = HeaderMap::new();
+    web_cookies(&state, &issued, &mut out)?;
+    if let Ok(v) = axum::http::HeaderValue::from_str(safe_next(form.next.as_deref())) {
+        out.insert(axum::http::header::LOCATION, v);
+    }
+    Ok((StatusCode::SEE_OTHER, out).into_response())
 }

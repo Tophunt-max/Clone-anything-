@@ -109,7 +109,8 @@ async fn refresh_rotates_and_a_reused_token_ends_the_session() {
     let live = As::Bearer(r2.body["access_token"].as_str().unwrap().to_string());
     assert_eq!(app.get("/api/v1/me", &live).await.status, StatusCode::OK);
 
-    // Someone replays the first token: the session ends for everyone holding it.
+    // Someone replays the first token after the grace window: the session ends for everyone.
+    sqlx::query("update refresh_tokens set used_at = used_at - interval '1 minute' where used_at is not null").execute(&app.db).await.unwrap();
     let replay = app.post("/api/v1/auth/refresh", &As::Nobody, json!({"refresh_token": first})).await;
     assert_eq!((replay.status, replay.code()), (StatusCode::UNAUTHORIZED, "refresh_reused"));
     assert_eq!(app.get("/api/v1/me", &live).await.status, StatusCode::UNAUTHORIZED, "the access token dies with its session");
@@ -122,6 +123,23 @@ async fn refresh_rotates_and_a_reused_token_ends_the_session() {
         let r = app.post("/api/v1/auth/refresh", &As::Nobody, json!({"refresh_token": junk})).await;
         assert_eq!(r.status, StatusCode::UNAUTHORIZED, "{junk:?}");
     }
+}
+
+#[tokio::test]
+async fn a_refresh_retried_within_the_grace_window_works_and_supersedes_the_lost_answer() {
+    let Some(app) = app().await else { return };
+    let r = app.post("/api/v1/auth/register", &As::Nobody, register_body("grace@example.com", "android")).await;
+    let first = r.body["refresh_token"].as_str().unwrap().to_string();
+    // The answer to this refresh is "lost" (the tab navigated away).
+    let lost = app.post("/api/v1/auth/refresh", &As::Nobody, json!({"refresh_token": first})).await.body["refresh_token"].as_str().unwrap().to_string();
+    // The client still holds `first` and tries again at once: it works.
+    let retry = app.post("/api/v1/auth/refresh", &As::Nobody, json!({"refresh_token": first})).await;
+    assert_eq!(retry.status, StatusCode::OK, "{:?}", retry.body);
+    let current = retry.body["refresh_token"].as_str().unwrap().to_string();
+    // The lost token is dead, and presenting it ends the session (it could only come from a copy).
+    let stale = app.post("/api/v1/auth/refresh", &As::Nobody, json!({"refresh_token": lost})).await;
+    assert_eq!((stale.status, stale.code()), (StatusCode::UNAUTHORIZED, "refresh_reused"));
+    assert_eq!(app.post("/api/v1/auth/refresh", &As::Nobody, json!({"refresh_token": current})).await.status, StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]

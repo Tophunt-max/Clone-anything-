@@ -1,6 +1,6 @@
 # UI implementation plan
 
-Status: **proposed** (Phase 0).
+Status: **proposed** (Phase 0). Phase 3 built screens 4–9, 34, 35 and 38; Phase 5 built screens 16, 18, 19, 20 (17 needs Chromium on the worker); screen 37 waits for a notifications API. See the roadmap.
 
 ## 1. Design system
 

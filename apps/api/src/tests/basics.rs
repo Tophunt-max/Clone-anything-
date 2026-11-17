@@ -26,7 +26,7 @@ async fn migrations_are_idempotent() {
     crate::MIGRATOR.run(&app.db).await.unwrap();
     let tables: Vec<String> =
         sqlx::query_scalar("select tablename::text from pg_tables where schemaname = 'public' order by 1").fetch_all(&app.db).await.unwrap();
-    for t in ["audit_logs", "devices", "projects", "refresh_tokens", "sessions", "users", "workspace_members", "workspaces"] {
+    for t in ["audit_logs", "devices", "login_codes", "projects", "refresh_tokens", "sessions", "users", "workspace_members", "workspaces"] {
         assert!(tables.iter().any(|x| x == t), "{t} missing: {tables:?}");
     }
 }
@@ -68,7 +68,7 @@ async fn errors_are_problem_json_with_the_request_id() {
 #[tokio::test]
 async fn oversized_bodies_are_refused() {
     let Some(app) = app().await else { return };
-    let big = "x".repeat(100 * 1024);
+    let big = "x".repeat(2 * 1024 * 1024);
     let r = app.call(Method::POST, "/api/v1/auth/login", &As::Nobody, Some(json!({"email": "a@b.co", "password": big}))).await;
     assert_eq!(r.status, StatusCode::PAYLOAD_TOO_LARGE);
 }

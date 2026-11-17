@@ -11,12 +11,13 @@ workspace = true
 
 [dependencies]
 axum = { version = "0.8", features = ["macros"] }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal", "time"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal", "time", "process", "io-util", "sync"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 uuid = { version = "1", features = ["v7", "serde"] }
+forge-worker = { path = "../workers", default-features = false }
 sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "postgres", "uuid", "chrono", "migrate", "macros", "json"] }
 argon2 = "0.6"
 chrono = { version = "0.4", features = ["serde"] }
@@ -25,6 +26,7 @@ base64 = "0.22"
 subtle = "2"
 sha2 = "0.10"
 hmac = "0.12"
+hex = "0.4"
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }

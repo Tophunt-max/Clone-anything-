@@ -55,7 +55,7 @@ and the endpoint list.
 | GET | `/readyz` | anyone | 503 `not_ready` if the DB is unreachable or a migration is pending |
 | POST | `/api/v1/auth/register` | anyone | `{email, password, display_name, client?: "web"\|"android", device_name?}` → 201. Creates a personal workspace (owner) |
 | POST | `/api/v1/auth/login` | anyone | same `client` rule; 401 `invalid_credentials` for a wrong password and an unknown email alike |
-| POST | `/api/v1/auth/refresh` | refresh token | web: cookie + `X-CSRF-Token`, no body; android: `{refresh_token}`. Rotates; a reused token revokes the session (401 `refresh_reused`) |
+| POST | `/api/v1/auth/refresh` | refresh token | web: cookie + `X-CSRF-Token`, no body; android: `{refresh_token}`. Rotates; a token reused more than 30 s after its use revokes the session (401 `refresh_reused`); within 30 s it rotates again (lost-answer retry) |
 | POST | `/api/v1/auth/logout` | signed in | revokes this session, clears cookies, 204 |
 | GET | `/api/v1/me` | signed in | |
 | GET | `/api/v1/me/sessions` | signed in | live sessions with device and `current` |
@@ -75,7 +75,9 @@ Session delivery: web responses set `forge_at` (HttpOnly, `Path=/api`, 10 min), 
 `insufficient_role`, `email_taken`, `slug_taken`, `already_member`, `last_owner`,
 `rate_limited` (429 with `Retry-After`), `unsupported_media_type`, `too_large`.
 
-Not yet: OpenAPI generation, MFA, `/auth/login-code` + `/auth/exchange` (WebView, Phase 4),
+Phase 4 added `POST /api/v1/auth/login-code` (signed in; 201 `{code, expires_in_secs: 60}`) and `POST /api/v1/auth/exchange` (form `code`, `next`; 303 to `next` with the browser cookies; 401 `invalid_code`, 403 `cross_site`).
+
+Not yet: OpenAPI generation, MFA,
 `/me/devices`, project members, Deep mode endpoint (Phase 5).
 
 ## 4. Workspaces, projects, members

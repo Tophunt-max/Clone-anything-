@@ -8,6 +8,7 @@ pub mod audit;
 pub mod auth;
 pub mod client;
 pub mod config;
+pub mod engine;
 pub mod error;
 pub mod extract;
 pub mod limits;
@@ -17,7 +18,6 @@ pub mod request_id;
 pub mod routes;
 pub mod validate;
 
-use std::sync::Arc;
 use std::time::Duration;
 
 use axum::extract::{DefaultBodyLimit, Request, State};
@@ -26,8 +26,10 @@ use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use engine::EnginePool;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+use std::sync::Arc;
 
 pub use config::Config;
 use problem::Problem;
@@ -49,6 +51,7 @@ pub struct AppState {
     pub trust_proxy: bool,
     pub limits: limits::Limits,
     pub limiter: Arc<limits::RateLimiter>,
+    pub engine: Arc<EnginePool>,
 }
 
 impl AppState {
@@ -61,6 +64,7 @@ impl AppState {
             trust_proxy: config.trust_proxy,
             limits: limits::Limits::default(),
             limiter: Arc::new(limits::RateLimiter::default()),
+            engine: Arc::new(EnginePool::new(engine::WorkerLaunch::from_env(), config.worker_pool_size)),
         }
     }
 }
@@ -75,6 +79,8 @@ pub fn router(state: AppState, body_limit: usize) -> Router {
         .route("/auth/login", post(a::login))
         .route("/auth/refresh", post(a::refresh))
         .route("/auth/logout", post(a::logout))
+        .route("/auth/login-code", post(a::login_code))
+        .route("/auth/exchange", post(a::exchange))
         .route("/me", get(me::me))
         .route("/me/sessions", get(me::sessions))
         .route("/me/sessions/{id}", axum::routing::delete(me::revoke_session))
@@ -83,7 +89,17 @@ pub fn router(state: AppState, body_limit: usize) -> Router {
         .route("/workspaces/{ws}/members", get(w::members).post(w::add_member))
         .route("/workspaces/{ws}/members/{user}", axum::routing::patch(w::change_member).delete(w::remove_member))
         .route("/workspaces/{ws}/projects", get(p::list).post(p::create))
-        .route("/projects/{id}", get(p::get).patch(p::update).delete(p::delete));
+        .route("/projects/{id}", get(p::get).patch(p::update).delete(p::delete))
+        .route("/tools", get(routes::tools::list))
+        .route("/tools/{id}", get(routes::tools::get))
+        .route("/projects/{id}/tool-calls", get(routes::engine::executions).post(routes::engine::call))
+        .route("/projects/{id}/deep-mode", post(routes::engine::set_deep_mode))
+        .route("/projects/{id}/targets", post(routes::engine::upload_target).route_layer(DefaultBodyLimit::max(routes::engine::MAX_TARGET_BYTES)))
+        .route("/projects/{id}/evidence", get(routes::engine::evidence_list))
+        .route("/projects/{id}/evidence/{ev}", get(routes::engine::evidence_get))
+        .route("/workspaces/{ws}/approvals", get(routes::approvals::list))
+        .route("/approvals/{id}/approve", post(routes::approvals::approve))
+        .route("/approvals/{id}/reject", post(routes::approvals::reject));
     Router::new()
         .route("/healthz", get(healthz))
         .route("/readyz", get(readyz))

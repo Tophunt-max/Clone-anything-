@@ -9,8 +9,23 @@ publish = false
 [lints]
 workspace = true
 
+[features]
+# The engine role links the original crates. `forge-api` depends on this crate with
+# default-features = false, so it gets only the protocol types (serde) and never the engine.
+default = ["engine"]
+engine = ["dep:craft-anything-engine", "dep:craft-anything-ai", "dep:craft-anything-setup", "dep:craft-anything-platform"]
+
 [dependencies]
-craft-anything-engine = { workspace = true }
-craft-anything-ai = { workspace = true }
-craft-anything-setup = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
+craft-anything-engine = { workspace = true, optional = true }
+craft-anything-ai = { workspace = true, optional = true }
+craft-anything-setup = { workspace = true, optional = true }
+craft-anything-platform = { workspace = true, optional = true }
+
+[[bin]]
+name = "forge-worker"
+required-features = ["engine"]
+
+[dev-dependencies]
+tempfile = "3"

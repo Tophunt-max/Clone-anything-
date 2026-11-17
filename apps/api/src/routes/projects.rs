@@ -123,6 +123,23 @@ pub async fn create(
     Ok((StatusCode::CREATED, Json(p)))
 }
 
+/// A project the caller may see, with the fields other routes (engine, approvals) need. Loading
+/// it enforces membership: a project in another tenant (or none) answers 404.
+pub struct ProjectAccess {
+    pub project_id: Uuid,
+    pub workspace_id: Uuid,
+    pub role: Role,
+    pub deep_mode: bool,
+}
+
+impl ProjectAccess {
+    pub async fn load(state: &crate::AppState, project_id: Uuid, user: Uuid) -> Result<ProjectAccess, ApiError> {
+        let mut conn = state.db.acquire().await?;
+        let (p, role) = visible(&mut conn, project_id, user, false).await?;
+        Ok(ProjectAccess { project_id: p.id, workspace_id: p.workspace_id, role, deep_mode: p.deep_mode })
+    }
+}
+
 /// The project and the caller's role in its workspace; 404 if either is missing.
 async fn visible(conn: &mut sqlx::PgConnection, project: Uuid, user: Uuid, lock: bool) -> Result<(ProjectOut, Role), ApiError> {
     let sql = if lock {

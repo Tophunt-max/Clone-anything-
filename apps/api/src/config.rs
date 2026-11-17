@@ -28,6 +28,8 @@ pub struct Config {
     pub trust_proxy: bool,
     /// `FORGE_MIGRATE_ON_START`, default `true`: apply pending migrations before serving.
     pub migrate_on_start: bool,
+    /// `FORGE_WORKER_POOL_SIZE`, default 8: engine worker processes kept warm.
+    pub worker_pool_size: usize,
 }
 
 impl Config {
@@ -65,6 +67,7 @@ impl Config {
             cookie_secure: flag(&get, "FORGE_COOKIE_SECURE", true)?,
             trust_proxy: flag(&get, "FORGE_TRUST_PROXY", false)?,
             migrate_on_start: flag(&get, "FORGE_MIGRATE_ON_START", true)?,
+            worker_pool_size: number(&get, "FORGE_WORKER_POOL_SIZE", 8usize)?.clamp(1, 128),
         })
     }
 }
